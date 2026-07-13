@@ -1,0 +1,526 @@
+// PETHOOD — schema Prisma
+// Fuente conceptual: Pethood/docs/MODELO_DATOS.md (mantener sincronizados)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────── ENUMS ───────────────
+
+enum EstadoUsuario {
+  PEND_VERIFICACION
+  ACTIVO
+  SUSPENDIDO
+  INACTIVO
+}
+
+enum NombreRol {
+  ADOPTANTE
+  MIEMBRO_REFUGIO
+  ADMIN
+}
+
+enum EstadoRefugio {
+  PEND_VERIFICACION
+  ACTIVO
+  INACTIVO
+}
+
+enum GeneroMascota {
+  MACHO
+  HEMBRA
+}
+
+enum EstadoMascota {
+  DISPONIBLE
+  EN_TRATAMIENTO
+  EN_TRANSITO
+  ADOPTADO
+  PERDIDO
+  FALLECIDO
+}
+
+enum EstadoPublicacion {
+  ACTIVA
+  PAUSADA
+  CERRADA
+  EXPIRADA
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  EN_REVISION
+  APROBADA
+  RECHAZADA
+  CANCELADA
+}
+
+enum TipoVivienda {
+  CASA
+  DEPARTAMENTO
+  QUINTA
+  OTRO
+}
+
+enum EstadoTransito {
+  PENDIENTE
+  APROBADO
+  ACTIVO
+  FINALIZADO
+  RECHAZADO
+  CANCELADO
+}
+
+enum EstadoCampania {
+  BORRADOR
+  ACTIVA
+  PAUSADA
+  FINALIZADA
+  CANCELADA
+}
+
+enum FrecuenciaPadrinazgo {
+  MENSUAL
+  TRIMESTRAL
+  ANUAL
+}
+
+enum EstadoPadrinazgo {
+  ACTIVO
+  CANCELADO
+}
+
+enum EstadoAnimalPerdido {
+  PERDIDO
+  ENCONTRADO
+  RESUELTO
+}
+
+// ─────────────── USUARIOS ───────────────
+
+model Usuario {
+  id            Int           @id @default(autoincrement()) @map("usuario_id")
+  nombre        String
+  apellido      String
+  email         String        @unique
+  passwordHash  String        @map("password_hash")
+  telefono      String?
+  fechaRegistro DateTime      @default(now()) @map("fecha_registro")
+  estado        EstadoUsuario @default(PEND_VERIFICACION)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  roles           UsuarioRol[]
+  bio             BioUsuario?
+  refugios        RefugioMiembro[]
+  chats           UsuarioChat[]
+  mensajes        Mensaje[]
+  favoritos       Favorito[]
+  mascotas        Mascota[] // mascotas bajo su cuidado/propiedad
+  historiales     HistorialClinico[]
+  publicaciones   Publicacion[]
+  solicitudes     SolicitudAdopcion[]
+  hogaresTransito HogarTransito[]
+  padrinazgos     Padrinazgo[]
+  resenas         Resena[]
+  reportesPerdido AnimalPerdido[]
+  notificaciones  Notificacion[]
+  logs            LogAuditoria[]
+
+  @@map("usuario")
+}
+
+model Rol {
+  id     Int       @id @default(autoincrement()) @map("rol_id")
+  nombre NombreRol @unique
+
+  usuarios UsuarioRol[]
+
+  @@map("rol")
+}
+
+model UsuarioRol {
+  usuarioId Int @map("usuario_id")
+  rolId     Int @map("rol_id")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  rol     Rol     @relation(fields: [rolId], references: [id])
+
+  @@id([usuarioId, rolId])
+  @@map("usuario_rol")
+}
+
+model BioUsuario {
+  id          Int     @id @default(autoincrement()) @map("bio_id")
+  usuarioId   Int     @unique @map("usuario_id")
+  descripcion String?
+  fotoPerfil  String? @map("foto_perfil")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("bio_usuario")
+}
+
+model Refugio {
+  id          Int           @id @default(autoincrement()) @map("refugio_id")
+  nombre      String
+  direccion   String
+  telefono    String?
+  email       String?
+  descripcion String?
+  estado      EstadoRefugio @default(PEND_VERIFICACION)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  miembros  RefugioMiembro[]
+  mascotas  Mascota[]
+  campanias Campania[]
+  resenas   Resena[]
+
+  @@map("refugio")
+}
+
+model RefugioMiembro {
+  refugioId    Int      @map("refugio_id")
+  usuarioId    Int      @map("usuario_id")
+  fechaIngreso DateTime @default(now()) @map("fecha_ingreso")
+
+  refugio Refugio @relation(fields: [refugioId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@id([refugioId, usuarioId])
+  @@map("refugio_miembro")
+}
+
+// ─────────────── CHAT ───────────────
+
+model Chat {
+  id            Int      @id @default(autoincrement()) @map("chat_id")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  participantes UsuarioChat[]
+  mensajes      Mensaje[]
+
+  @@map("chat")
+}
+
+model UsuarioChat {
+  chatId    Int @map("chat_id")
+  usuarioId Int @map("usuario_id")
+
+  chat    Chat    @relation(fields: [chatId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@id([chatId, usuarioId])
+  @@map("usuario_chat")
+}
+
+model Mensaje {
+  id        Int      @id @default(autoincrement()) @map("men_id")
+  chatId    Int      @map("chat_id")
+  usuarioId Int      @map("usuario_id")
+  contenido String
+  fecha     DateTime @default(now())
+  leido     Boolean  @default(false)
+
+  chat    Chat    @relation(fields: [chatId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("mensaje")
+}
+
+// ─────────────── MASCOTAS ───────────────
+
+model Especie {
+  id          Int     @id @default(autoincrement()) @map("especie_id")
+  nombre      String  @unique
+  descripcion String?
+
+  razas Raza[]
+
+  @@map("especie")
+}
+
+model Raza {
+  id        Int    @id @default(autoincrement()) @map("raza_id")
+  nombre    String
+  especieId Int    @map("especie_id")
+
+  especie  Especie   @relation(fields: [especieId], references: [id])
+  mascotas Mascota[]
+
+  @@unique([nombre, especieId])
+  @@map("raza")
+}
+
+model Mascota {
+  id              Int           @id @default(autoincrement()) @map("masc_id")
+  nombre          String?
+  fechaNacimiento DateTime?     @map("fecha_nacimiento")
+  genero          GeneroMascota
+  castrado        Boolean       @default(false)
+  descripcion     String?
+  razaId          Int           @map("raza_id")
+  refugioId       Int?          @map("refugio_id")
+  usuarioId       Int?          @map("usuario_id")
+  estado          EstadoMascota @default(DISPONIBLE)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  raza          Raza                @relation(fields: [razaId], references: [id])
+  refugio       Refugio?            @relation(fields: [refugioId], references: [id])
+  usuario       Usuario?            @relation(fields: [usuarioId], references: [id])
+  fotos         Foto[]
+  historiales   HistorialClinico[]
+  vacunaciones  Vacunacion[]
+  favoritos     Favorito[]
+  publicaciones Publicacion[]
+  solicitudes   SolicitudAdopcion[]
+  transitos     Transito[]
+  padrinazgos   Padrinazgo[]
+  reportes      AnimalPerdido[]
+
+  @@map("mascota")
+}
+
+model Foto {
+  id          Int     @id @default(autoincrement()) @map("foto_id")
+  url         String
+  mascotaId   Int     @map("mascota_id")
+  esPrincipal Boolean @default(false) @map("es_principal")
+
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+
+  @@map("foto")
+}
+
+model HistorialClinico {
+  id          Int      @id @default(autoincrement()) @map("hist_id")
+  mascotaId   Int      @map("mascota_id")
+  usuarioId   Int      @map("usuario_id")
+  fecha       DateTime @default(now())
+  descripcion String
+
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("historial_clinico")
+}
+
+model Vacunacion {
+  id                  Int       @id @default(autoincrement()) @map("vacuna_id")
+  mascotaId           Int       @map("mascota_id")
+  nombreVacuna        String    @map("nombre_vacuna")
+  fecha               DateTime
+  proximaFecha        DateTime? @map("proxima_fecha")
+  recordatorioEnviado Boolean   @default(false) @map("recordatorio_enviado")
+
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+
+  @@map("vacunacion")
+}
+
+model Favorito {
+  id        Int      @id @default(autoincrement()) @map("fav_id")
+  usuarioId Int      @map("usuario_id")
+  mascotaId Int      @map("mascota_id")
+  fecha     DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+
+  @@unique([usuarioId, mascotaId])
+  @@map("favorito")
+}
+
+// ─────────────── PUBLICACIONES ───────────────
+
+model Publicacion {
+  id             Int               @id @default(autoincrement()) @map("pub_id")
+  mascotaId      Int               @map("mascota_id")
+  publicadoPorId Int               @map("publicado_por_id")
+  titulo         String
+  descripcion    String?
+  fechaCreacion  DateTime          @default(now()) @map("fecha_creacion")
+  estado         EstadoPublicacion @default(ACTIVA)
+
+  mascota      Mascota   @relation(fields: [mascotaId], references: [id])
+  publicadoPor Usuario   @relation(fields: [publicadoPorId], references: [id])
+  adjuntos     Adjunto[]
+
+  @@map("publicacion")
+}
+
+model Adjunto {
+  id            Int    @id @default(autoincrement()) @map("adj_id")
+  publicacionId Int    @map("pub_id")
+  url           String
+  tipo          String
+
+  publicacion Publicacion @relation(fields: [publicacionId], references: [id])
+
+  @@map("adjunto")
+}
+
+// ─────────────── ADOPCIÓN ───────────────
+
+model SolicitudAdopcion {
+  id             Int             @id @default(autoincrement()) @map("soli_id")
+  mascotaId      Int             @map("mascota_id")
+  solicitanteId  Int             @map("solicitante_id")
+  fechaSolicitud DateTime        @default(now()) @map("fecha_solicitud")
+  motivacion     String
+  estado         EstadoSolicitud @default(PENDIENTE)
+  fechaRespuesta DateTime?       @map("fecha_respuesta")
+  comentario     String? // motivo obligatorio si RECHAZADA (se valida en servicio)
+
+  mascota      Mascota       @relation(fields: [mascotaId], references: [id])
+  solicitante  Usuario       @relation(fields: [solicitanteId], references: [id])
+  seguimientos Seguimiento[]
+
+  @@map("solicitud_adopcion")
+}
+
+model Seguimiento {
+  id          Int      @id @default(autoincrement()) @map("seg_id")
+  solicitudId Int      @map("solicitud_id")
+  fecha       DateTime @default(now())
+  descripcion String?
+  fotoUrl     String?  @map("foto_url")
+
+  solicitud SolicitudAdopcion @relation(fields: [solicitudId], references: [id])
+
+  @@map("seguimiento")
+}
+
+// ─────────────── TRÁNSITO ───────────────
+
+model HogarTransito {
+  id            Int          @id @default(autoincrement()) @map("hog_id")
+  usuarioId     Int          @map("usuario_id")
+  direccion     String
+  tienePatio    Boolean      @default(false) @map("tiene_patio")
+  tipoVivienda  TipoVivienda @map("tipo_vivienda")
+  tieneMascotas Boolean      @default(false) @map("tiene_mascotas")
+  descripcion   String?
+  disponible    Boolean      @default(true)
+
+  usuario   Usuario    @relation(fields: [usuarioId], references: [id])
+  transitos Transito[]
+
+  @@map("hogar_transito")
+}
+
+model Transito {
+  id             Int            @id @default(autoincrement()) @map("tran_id")
+  mascotaId      Int            @map("mascota_id")
+  hogarId        Int            @map("hogar_id")
+  fechaSolicitud DateTime       @default(now()) @map("fecha_solicitud")
+  fechaInicio    DateTime?      @map("fecha_inicio")
+  fechaFin       DateTime?      @map("fecha_fin")
+  notas          String?
+  estado         EstadoTransito @default(PENDIENTE)
+
+  mascota Mascota       @relation(fields: [mascotaId], references: [id])
+  hogar   HogarTransito @relation(fields: [hogarId], references: [id])
+
+  @@map("transito")
+}
+
+// ─────────────── COMUNIDAD ───────────────
+
+model Campania {
+  id          Int            @id @default(autoincrement()) @map("camp_id")
+  refugioId   Int            @map("refugio_id")
+  titulo      String
+  descripcion String
+  objetivo    Decimal        @db.Decimal(12, 2)
+  fechaInicio DateTime       @map("fecha_inicio")
+  fechaFin    DateTime       @map("fecha_fin")
+  imagen      String?
+  estado      EstadoCampania @default(BORRADOR)
+
+  refugio Refugio @relation(fields: [refugioId], references: [id])
+
+  @@map("campania")
+}
+
+model Padrinazgo {
+  id          Int                  @id @default(autoincrement()) @map("pad_id")
+  usuarioId   Int                  @map("usuario_id")
+  mascotaId   Int                  @map("mascota_id")
+  monto       Decimal              @db.Decimal(12, 2)
+  frecuencia  FrecuenciaPadrinazgo
+  fechaInicio DateTime             @default(now()) @map("fecha_inicio")
+  estado      EstadoPadrinazgo     @default(ACTIVO)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+
+  @@map("padrinazgo")
+}
+
+model Resena {
+  id         Int      @id @default(autoincrement()) @map("resena_id")
+  autorId    Int      @map("autor_id")
+  refugioId  Int      @map("refugio_id")
+  puntuacion Int // 1-5, validado en servicio
+  comentario String? // máx. 500 caracteres, validado en servicio
+  fecha      DateTime @default(now())
+
+  autor   Usuario @relation(fields: [autorId], references: [id])
+  refugio Refugio @relation(fields: [refugioId], references: [id])
+
+  @@map("resena")
+}
+
+model AnimalPerdido {
+  id                  Int                 @id @default(autoincrement()) @map("reporte_id")
+  usuarioReportanteId Int                 @map("usuario_reportante_id")
+  mascotaId           Int?                @map("mascota_id")
+  descripcion         String
+  fotoUrl             String              @map("foto_url")
+  latitud             Float
+  longitud            Float
+  fecha               DateTime            @default(now())
+  estado              EstadoAnimalPerdido @default(PERDIDO)
+
+  usuarioReportante Usuario  @relation(fields: [usuarioReportanteId], references: [id])
+  mascota           Mascota? @relation(fields: [mascotaId], references: [id])
+
+  @@map("animal_perdido")
+}
+
+// ─────────────── SISTEMA ───────────────
+
+model Notificacion {
+  id        Int      @id @default(autoincrement()) @map("notif_id")
+  usuarioId Int      @map("usuario_id")
+  tipo      String
+  mensaje   String
+  leida     Boolean  @default(false)
+  fecha     DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("notificacion")
+}
+
+model LogAuditoria {
+  id        Int      @id @default(autoincrement()) @map("log_id")
+  usuarioId Int      @map("usuario_id")
+  accion    String
+  entidad   String
+  entidadId Int      @map("entidad_id")
+  fecha     DateTime @default(now())
+  detalle   String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("log_auditoria")
+}

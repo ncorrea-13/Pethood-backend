@@ -1,0 +1,167 @@
+# MODELO_DATOS.md — PetHood
+
+Modelo de datos derivado del diagrama de clases de factibilidad/diseño (Grupo N°09). Es la fuente de verdad para nombres de tablas, campos, PK/FK y cardinalidades. Todas las entidades siguen el patrón de auditoría transversal salvo excepción indicada.
+
+## Convención de auditoría (aplica a TODAS las entidades salvo que se aclare lo contrario)
+
+Todas las tablas incluyen, además de sus campos propios:
+
+```
+{entidad}_usuario_alta
+{entidad}_fecha_alta
+{entidad}_usuario_modificacion
+{entidad}_fecha_modificacion
+{entidad}_usuario_baja
+{entidad}_fecha_baja
+```
+
+Por brevedad, estos 6 campos se omiten en el detalle de cada entidad más abajo y solo se listan los campos propios del negocio. Dar por hecho que existen siempre, salvo en las entidades marcadas explícitamente como **solo alta** o **alta/baja sin modificación**.
+
+## Catálogos (tablas de referencia, sin lógica propia)
+
+Estas son tablas simples de tipo catálogo, usadas como FK desde otras entidades. Todas tienen `{nombre}_id PK`, `{nombre}_nombre`, `{nombre}_descripcion` + auditoría.
+
+- **Especie** (`especie_id PK`) — ej. Perro, Gato.
+- **Raza** (`raza_id PK`, FK a `especie_id`) — depende de la especie seleccionada (el frontend debe filtrar razas dinámicamente al elegir especie).
+- **Estado_Mascota** (`estado_mascota_id PK`) — valores: Disponible, En_Tratamiento, Adoptado, Fallecido, En_Transito (ver nota de negocio).
+- **Estado_Usuario** (`estado_usuario_id PK`).
+- **Estado_Refugio** (`estado_refugio_id PK`).
+- **Estado_Solicitud** (`estado_solicitud_id PK`).
+- **Estado_Campaña** (`estado_campaña_id PK`) — valores: Inactiva, Activa, Finalizada, Cancelada.
+- **Estado_Animal_Perdido** (`estado_animal_perdido_id PK`) — incluye "Encontrado/Perdido/Resuelto".
+- **Tipo_Solicitud** (`tipo_solicitud_id PK`) — incluye `tipo_solicitud_secuencia_dias` (usado para ventanas de tiempo, ej. la cancelación automática a los 6 meses).
+- **Rol** (`rol_id PK`) — Administrador, Refugio, Adoptante.
+
+**Nota de negocio sobre estados de Mascota:** los valores vistos en el diagrama son `disponible`, `En_Tratamiento`, `Adoptado`, `Fallecido`, `En_Transito`. Un refugio solo puede continuar el flujo de publicación ("Continuar: Crear la publicación") si el estado elegido es "Disponible" o "En tránsito"; si elige "En tratamiento" ese botón permanece deshabilitado.
+
+## Entidades principales
+
+### Usuario
+`usuario_id PK`, `usuario_nombre`, `usuario_apellido`, `usuario_email`, `usuario_contraseña`, `usuario_telefono`, `usuario_dni`, `usuario_verificado`, `usuario_imagen_url`, FK `refugio_id` (nullable — solo aplica si el usuario pertenece a un refugio), FK `estado_id` (→ Estado_Usuario).
+
+Relaciones: 1 Usuario → N Mascota, N Publicacion, N Solicitud, N Favorito, N Notificacion, N Seguimiento, N Historia_Clinica, N Hogar, N Reseña (como autor), N Donacion, N Campaña, N Usuario_Chat, N Mensaje, N Rol_Usuario, N Animal_Perdido (como reportante).
+
+### Rol_Usuario
+Tabla intermedia N:N entre Usuario y Rol. `usuario_id FK NOT NULL`, `rol_id FK NOT NULL` + auditoría propia de la relación.
+
+### Refugio
+`refugio_id PK`, `refugio_nombre`, `refugio_direccion`, `refugio_telefono`, `refugio_email`, `refugio_descripcion`, `refugio_verificado`, `refugio_imagen_url`, FK `estado_id` (→ Estado_Refugio).
+
+Relaciones: 1 Refugio → N Campaña, 1 Refugio → N Reseña (como reportado/ `refugio_reportado_id` en Reseña).
+
+### Mascota
+`mascota_id PK`, `mascota_nombre`, `mascota_fecha_nacimiento`, `mascota_genero`, `mascota_castrado`, `mascota_descripcion`, `mascota_imagen_url`, FK `raza_id NOT NULL`, FK `refugio_id` (nullable), FK `usuario_id NOT NULL` (dueño/creador).
+
+Validaciones de negocio (HU-6.1): nombre 2-25 caracteres (con trim); fecha de nacimiento nunca futura; peso numérico con hasta 1 decimal (acepta punto o coma); tamaño = selector cerrado Pequeño/Mediano/Grande; sexo = selector cerrado Macho/Hembra; foto obligatoria (≤5MB, jpg/png/webp/jpeg); especie/raza dependientes en cascada.
+
+### Mascota_Estado
+Histórico N:1 de estados de una mascota. `mascota_estado_id PK`, FK `mascota_id FK NOT NULL`, FK `estado_mascota_id FK NOT NULL` + auditoría (alta/baja, sin campo de modificación propio distinto del genérico).
+
+### Estado_Mascota
+Ver catálogos arriba.
+
+### Publicacion
+`publicacion_id PK`, `publicacion_titulo`, `publicacion_descripcion` (máx. 50 caracteres, trim), `publicacion_imagen_url`, FK `mascota_id FK NOT NULL`, FK `usuario_id FK NOT NULL`, FK `estado_id FK NOT NULL`.
+
+Relaciones: 1 Publicacion → N Solicitud, N Favorito (vía Mascota), 1 Publicacion → N Reseña (visibles en contexto de publicación/solicitud).
+
+Regla de negocio: máximo 5 publicaciones activas simultáneas por adoptante particular (quota anti-spam).
+
+### Favorito
+`favorito_id PK`, FK `usuario_id FK NOT NULL`, FK `mascota_id FK NOT NULL`. Relación N:N entre Usuario y Mascota vía esta tabla intermedia.
+
+### Solicitud
+`solicitud_id PK`, `solicitud_motivacion`, `solicitud_fecha_respuesta`, `solicitud_comentario`, FK `publicacion_id FK NOT NULL`, FK `usuario_id FK NOT NULL` (solicitante), FK `tipoSolicitud_id FK NOT NULL`.
+
+Regla de negocio: máximo 5 solicitudes en estado "Pendiente" simultáneas por usuario. Cancelación automática (usuario "SISTEMA") a los 6 meses sin resolución.
+
+### Solicitud_Estado
+Histórico de estados de una solicitud. `solicitud_estado_id PK`, FK `solicitud_id FK NOT NULL`, FK `estado_solicitud_id FK NOT NULL`.
+
+### Tipo_Solicitud
+Ver catálogos. Incluye `tipo_solicitud_secuencia_dias` para parametrizar ventanas de tiempo (ej. adopción vs. tránsito pueden tener plazos distintos).
+
+### Historia_Clinica
+`historia_clinica_id PK`, `historia_clinica_fecha_visita`, `historia_clinica_fecha_proxima`, `historia_clinica_requiere_revision`, `historia_clinica_vacunacion`, `historia_clinica_titulo`, `historia_clinica_descripcion`, `historia_clinica_documento_url`, `historia_clinica_autor_id`, FK `mascota_id FK NOT NULL`.
+
+**Regla de negocio crítica: inmutabilidad.** No existe operación de UPDATE sobre un registro de historia clínica ya persistido. "Modificar" = dar de baja lógica del registro erróneo + crear uno nuevo. El campo de fecha de modificación genérico no debería usarse nunca en la práctica para esta entidad (si aparece poblado, es una señal de bug).
+
+### Seguimiento
+`seguimiento_id PK`, `seguimiento_descripcion`, `seguimiento_foto_url`, `seguimiento_plazo`, FK `solicitud_id FK NOT NULL`, FK `pregunta_seguimiento_id FK NOT NULL`.
+
+**Regla de negocio crítica: anti-fraude.** La foto de evidencia (`seguimiento_foto_url`) debe originarse exclusivamente desde la API de cámara nativa del dispositivo — el frontend mobile debe bloquear el acceso a la galería para este campo específico.
+
+### Pregunta_Seguimiento
+`pregunta_seguimiento_id PK`, `pregunta_seguimiento_texto`, `pregunta_seguimiento_posicion`, `pregunta_seguimiento_es_adopcion: boolean` (distingue si la pregunta aplica a flujo de adopción o de tránsito).
+
+### Reseña
+`reseña_id PK`, `reseña_puntuacion` (1-5), `reseña_comentario`, FK `reseña_usuario_alta FK NOT NULL` (autor), FK `refugio_reportado_id` (nullable), FK `usuario_reportado_id` (nullable).
+
+**Nota sobre auditoría:** en el diagrama, Reseña tiene alta y modificación pero **no tiene campos de baja separados visibles como el resto** — sin embargo HU-10.6 ("Dar de baja reseñas") indica que sí soporta baja lógica. Tratarla igual que el resto de entidades con baja lógica estándar. Nunca se edita el contenido de una reseña ya creada (solo alta y baja, sin endpoint de update de contenido).
+
+### Chat
+`chat_id PK`, `chat_tipo` (probablemente distingue chat adoptante↔refugio vs. chat de coordinación de mascota perdida/encontrada — confirmar con el equipo el enum exacto), FK `refugio_id` (nullable, marcado `FK?` en el diagrama porque no todo chat involucra un refugio: el caso de mascotas perdidas es adoptante↔adoptante).
+
+### Usuario_Chat
+Tabla intermedia N:N entre Usuario y Chat (participantes de una sala). `chat_id FK NOT NULL`, `usuario_id FK NOT NULL` + auditoría.
+
+### Mensaje
+`mensaje_id PK`, `mensaje_contenido`, `mensaje_leido`, `mensaje_imagen_url`, FK `chat_id FK NOT NULL`, FK `usuario_id FK NOT NULL` (emisor).
+
+**Nota de auditoría — excepción:** el mensaje **solo tiene alta**, no baja (consistente con la nota del documento de requisitos: "El mensaje solo va a tener alta, y el chat va a tener alta y baja"). No implementar endpoint de borrado de mensaje individual.
+
+### Notificacion
+`notificacion_id PK`, `notificacion_tipo`, `notificacion_mensaje`, `notificacion_leido`, FK `refugio_id` (nullable), FK `estado_id FK NOT NULL`, FK `usuario_id FK` (destinatario).
+
+Disparada por eventos de: Solicitud (aceptada/rechazada/nueva), Chat/Mensaje (mensaje nuevo), Seguimiento (post-adopción, revisión).
+
+### Hogar
+`hogar_id PK`, `hogar_direccion`, `hogar_tiene_patio`, `hogar_tiene_mascotas`, `hogar_descripcion`, `hogar_tipo_vivienda`, `hogar_inicio_disponibilidad`, `hogar_fin_disponibilidad`, `hogar_imagen_url`, FK `usuario_id FK NOT NULL`.
+
+Representa el hogar de tránsito de un usuario/adoptante — no es una entidad de rol separada, es un atributo/perfil extendido del Usuario para cuando ofrece tránsito temporal. Ver `ROADMAP.md` sobre por qué no es módulo autónomo.
+
+### Campaña
+`campaña_id PK`, `campaña_titulo`, `campaña_descripcion`, `campaña_objetivo`, `campaña_fechaInicio`, `campaña_fechaFin`, `campaña_imagen_url`, FK `refugio_id FK NOT NULL`, FK `estado_campaña_id FK NOT NULL`.
+
+Validaciones (HU-12.1): descripción ≤300 caracteres; objetivo numérico entre $10.000 y $2.500.000; fecha_inicio ≥ hoy; fecha_fin > fecha_inicio; imagen jpg/png/webp; máximo 5 campañas activas por refugio.
+
+Transiciones automáticas (cron, usuario "SISTEMA"): Inactiva→Activa al llegar fecha_inicio; →Finalizada al llegar fecha_fin o alcanzar el monto objetivo acumulado.
+
+### Estado_Campaña
+Ver catálogos. Valores: Inactiva, Activa, Finalizada, Cancelada.
+
+### Donacion
+`donacion_id PK`, `donacion_monto`, FK `campaña_id FK NOT NULL`, FK `usuario_id FK NOT NULL` (donante).
+
+**Regla de negocio crítica:** el monto declarado por el adoptante NO impacta automáticamente el progreso acumulado de la campaña. Solo se contabiliza cuando el refugio verifica manualmente el ingreso real en su cuenta y confirma (acción explícita "Aceptar" en el flujo de HU-12.3).
+
+### Animal_Perdido
+`animal_perdido_id PK`, `animal_perdido_descripcion`, `animal_perdido_imagen_url`, `animal_perdido_latitud`, `animal_perdido_longitud`, `animal_perdido_fecha_resuelto`, FK `usuario_reportante_id FK NOT NULL`, FK `mascota_id` (nullable — puede reportarse un animal encontrado que no está registrado como Mascota propia de nadie en el sistema).
+
+**Resuelto:** `animal_perdido_latitud` / `animal_perdido_longitud` se mantienen — sí se captura la coordenada al reportar un animal perdido/encontrado (ej. desde el GPS del dispositivo al momento del reporte). Lo que **no existe** es un mapa interactivo en la UI: el usuario busca y visualiza por ubicación administrativa (Provincia/Localidad), no por un mapa con pines. No quitar estos campos del modelo ni reemplazarlos por FK a Provincia/Localidad — conviven ambos: lat/long como dato del reporte, Provincia/Localidad como criterio de filtro para el usuario.
+
+### Estado_Animal_Perdido
+Ver catálogos.
+
+## Entidades cuya existencia formal hay que confirmar
+
+- **Reporte_Problema**: aparece nombrada explícitamente en la matriz de trazabilidad del documento de requisitos (HU-3.1 a HU-3.7, "Moderación y Reportes") asociada a Usuario, Publicacion y Reseña, pero **no aparece dibujada como entidad propia en las capturas del diagrama de clases** revisadas. Antes de la Fase 9 del roadmap, confirmar con el equipo si ya existe en una versión más actualizada del diagrama o si hay que modelarla desde cero (sugerencia mínima: `reporte_id PK`, `reporte_motivo`, `reporte_estado`, FK polimórfica o FKs nullable a `publicacion_id` / `usuario_reportado_id` / `reseña_id` + auditoría).
+
+## Resumen de cardinalidades clave (para no perderlas al migrar)
+
+- Usuario 1—N Mascota, 1—N Publicacion, 1—N Solicitud, 1—N Reseña (autor).
+- Refugio 1—N Campaña, 1—N Mascota (opcional), 1—N Chat (opcional, `FK?`).
+- Especie 1—N Raza; Raza 1—N Mascota.
+- Mascota 1—N Publicacion, 1—N Historia_Clinica, N—N Usuario (vía Favorito).
+- Publicacion 1—N Solicitud.
+- Solicitud 1—N Seguimiento, 1—N Solicitud_Estado.
+- Chat N—N Usuario (vía Usuario_Chat), Chat 1—N Mensaje.
+- Campaña 1—N Donacion.
+- Tipo_Solicitud 1—N Solicitud.
+- Pregunta_Seguimiento 1—N Seguimiento.
+
+## Cómo usar este documento desde Claude Code
+
+- Al generar migraciones/modelos ORM, copiar los nombres de campo tal cual (`snake_case` con el prefijo de la entidad), porque así están en el diagrama fuente y así los va a buscar el resto del equipo.
+- Si una tarea requiere un campo que no está listado acá, no inventarlo: marcar la duda y preguntar, especialmente en la entidad señalada arriba como pendiente de confirmar (Reporte_Problema).
+- Los catálogos (Estado_*, Tipo_Solicitud, Especie, Raza, Rol) deberían poder gestionarse desde el panel admin, aunque no tengan HU propia detallada — son configuración base del sistema (ver módulo transversal "Configuración y parámetros" en `docs/REQUISITOS.md`).
