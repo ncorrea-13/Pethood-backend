@@ -1,5 +1,15 @@
 // PETHOOD — schema Prisma
-// Fuente conceptual: Pethood/docs/MODELO_DATOS.md (mantener sincronizados)
+// Fuente conceptual: docs/MODELO_DATOS.md (mantener sincronizados)
+//
+// Convenciones de este archivo:
+// - Nombres Prisma (modelo/campo) en PascalCase/camelCase sin tildes ni ñ (CONSTITUTION.md §5).
+// - @map/@@map preservan el nombre de columna documentado en MODELO_DATOS.md, también sin tildes/ñ
+//   (transliteración mecánica: reseña->resena, campaña->campania, contraseña->contrasena).
+// - Auditoría transversal: {entidad}_usuario_alta/fecha_alta/usuario_modificacion/fecha_modificacion/
+//   usuario_baja/fecha_baja en TODA entidad salvo excepción documentada. Son columnas Int/DateTime
+//   planas (sin relación Prisma a Usuario) para no explotar el grafo de relaciones — el id "SISTEMA"
+//   usado por los cron jobs se siembra como un Usuario real en el seed.
+// - Baja siempre lógica (fecha_baja nullable = activo si es null). Nunca DELETE físico.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,235 +21,27 @@ datasource db {
 }
 
 // ─────────────── ENUMS ───────────────
-
-enum EstadoUsuario {
-  PEND_VERIFICACION
-  ACTIVO
-  SUSPENDIDO
-  INACTIVO
-}
-
-enum NombreRol {
-  ADOPTANTE
-  MIEMBRO_REFUGIO
-  ADMIN
-}
-
-enum EstadoRefugio {
-  PEND_VERIFICACION
-  ACTIVO
-  INACTIVO
-}
+// Único enum real: selector cerrado de 2 valores explícito en HU-6.1, no modelado como catálogo.
 
 enum GeneroMascota {
   MACHO
   HEMBRA
 }
 
-enum EstadoMascota {
-  DISPONIBLE
-  EN_TRATAMIENTO
-  EN_TRANSITO
-  ADOPTADO
-  PERDIDO
-  FALLECIDO
-}
-
-enum EstadoPublicacion {
-  ACTIVA
-  PAUSADA
-  CERRADA
-  EXPIRADA
-}
-
-enum EstadoSolicitud {
-  PENDIENTE
-  EN_REVISION
-  APROBADA
-  RECHAZADA
-  CANCELADA
-}
-
-enum TipoVivienda {
-  CASA
-  DEPARTAMENTO
-  QUINTA
-  OTRO
-}
-
-enum EstadoTransito {
-  PENDIENTE
-  APROBADO
-  ACTIVO
-  FINALIZADO
-  RECHAZADO
-  CANCELADO
-}
-
-enum EstadoCampania {
-  BORRADOR
-  ACTIVA
-  PAUSADA
-  FINALIZADA
-  CANCELADA
-}
-
-enum FrecuenciaPadrinazgo {
-  MENSUAL
-  TRIMESTRAL
-  ANUAL
-}
-
-enum EstadoPadrinazgo {
-  ACTIVO
-  CANCELADO
-}
-
-enum EstadoAnimalPerdido {
-  PERDIDO
-  ENCONTRADO
-  RESUELTO
-}
-
-// ─────────────── USUARIOS ───────────────
-
-model Usuario {
-  id            Int           @id @default(autoincrement()) @map("usuario_id")
-  nombre        String
-  apellido      String
-  email         String        @unique
-  passwordHash  String        @map("password_hash")
-  telefono      String?
-  fechaRegistro DateTime      @default(now()) @map("fecha_registro")
-  estado        EstadoUsuario @default(PEND_VERIFICACION)
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-
-  roles           UsuarioRol[]
-  bio             BioUsuario?
-  refugios        RefugioMiembro[]
-  chats           UsuarioChat[]
-  mensajes        Mensaje[]
-  favoritos       Favorito[]
-  mascotas        Mascota[] // mascotas bajo su cuidado/propiedad
-  historiales     HistorialClinico[]
-  publicaciones   Publicacion[]
-  solicitudes     SolicitudAdopcion[]
-  hogaresTransito HogarTransito[]
-  padrinazgos     Padrinazgo[]
-  resenas         Resena[]
-  reportesPerdido AnimalPerdido[]
-  notificaciones  Notificacion[]
-  logs            LogAuditoria[]
-
-  @@map("usuario")
-}
-
-model Rol {
-  id     Int       @id @default(autoincrement()) @map("rol_id")
-  nombre NombreRol @unique
-
-  usuarios UsuarioRol[]
-
-  @@map("rol")
-}
-
-model UsuarioRol {
-  usuarioId Int @map("usuario_id")
-  rolId     Int @map("rol_id")
-
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-  rol     Rol     @relation(fields: [rolId], references: [id])
-
-  @@id([usuarioId, rolId])
-  @@map("usuario_rol")
-}
-
-model BioUsuario {
-  id          Int     @id @default(autoincrement()) @map("bio_id")
-  usuarioId   Int     @unique @map("usuario_id")
-  descripcion String?
-  fotoPerfil  String? @map("foto_perfil")
-
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@map("bio_usuario")
-}
-
-model Refugio {
-  id          Int           @id @default(autoincrement()) @map("refugio_id")
-  nombre      String
-  direccion   String
-  telefono    String?
-  email       String?
-  descripcion String?
-  estado      EstadoRefugio @default(PEND_VERIFICACION)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  miembros  RefugioMiembro[]
-  mascotas  Mascota[]
-  campanias Campania[]
-  resenas   Resena[]
-
-  @@map("refugio")
-}
-
-model RefugioMiembro {
-  refugioId    Int      @map("refugio_id")
-  usuarioId    Int      @map("usuario_id")
-  fechaIngreso DateTime @default(now()) @map("fecha_ingreso")
-
-  refugio Refugio @relation(fields: [refugioId], references: [id])
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@id([refugioId, usuarioId])
-  @@map("refugio_miembro")
-}
-
-// ─────────────── CHAT ───────────────
-
-model Chat {
-  id            Int      @id @default(autoincrement()) @map("chat_id")
-  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
-
-  participantes UsuarioChat[]
-  mensajes      Mensaje[]
-
-  @@map("chat")
-}
-
-model UsuarioChat {
-  chatId    Int @map("chat_id")
-  usuarioId Int @map("usuario_id")
-
-  chat    Chat    @relation(fields: [chatId], references: [id])
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@id([chatId, usuarioId])
-  @@map("usuario_chat")
-}
-
-model Mensaje {
-  id        Int      @id @default(autoincrement()) @map("men_id")
-  chatId    Int      @map("chat_id")
-  usuarioId Int      @map("usuario_id")
-  contenido String
-  fecha     DateTime @default(now())
-  leido     Boolean  @default(false)
-
-  chat    Chat    @relation(fields: [chatId], references: [id])
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@map("mensaje")
-}
-
-// ─────────────── MASCOTAS ───────────────
+// ─────────────── CATÁLOGOS ───────────────
+// Todas gestionables desde el panel admin (MODELO_DATOS.md, nota de cierre).
 
 model Especie {
   id          Int     @id @default(autoincrement()) @map("especie_id")
-  nombre      String  @unique
-  descripcion String?
+  nombre      String  @unique @map("especie_nombre")
+  descripcion String? @map("especie_descripcion")
+
+  usuarioAlta         Int       @map("especie_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("especie_fecha_alta")
+  usuarioModificacion Int?      @map("especie_usuario_modificacion")
+  fechaModificacion   DateTime? @map("especie_fecha_modificacion")
+  usuarioBaja         Int?      @map("especie_usuario_baja")
+  fechaBaja           DateTime? @map("especie_fecha_baja")
 
   razas Raza[]
 
@@ -248,8 +50,15 @@ model Especie {
 
 model Raza {
   id        Int    @id @default(autoincrement()) @map("raza_id")
-  nombre    String
+  nombre    String @map("raza_nombre")
   especieId Int    @map("especie_id")
+
+  usuarioAlta         Int       @map("raza_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("raza_fecha_alta")
+  usuarioModificacion Int?      @map("raza_usuario_modificacion")
+  fechaModificacion   DateTime? @map("raza_fecha_modificacion")
+  usuarioBaja         Int?      @map("raza_usuario_baja")
+  fechaBaja           DateTime? @map("raza_fecha_baja")
 
   especie  Especie   @relation(fields: [especieId], references: [id])
   mascotas Mascota[]
@@ -258,269 +67,673 @@ model Raza {
   @@map("raza")
 }
 
+model EstadoMascota {
+  id          Int     @id @default(autoincrement()) @map("estado_mascota_id")
+  nombre      String  @unique @map("estado_mascota_nombre")
+  descripcion String? @map("estado_mascota_descripcion")
+
+  usuarioAlta         Int       @map("estado_mascota_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("estado_mascota_fecha_alta")
+  usuarioModificacion Int?      @map("estado_mascota_usuario_modificacion")
+  fechaModificacion   DateTime? @map("estado_mascota_fecha_modificacion")
+  usuarioBaja         Int?      @map("estado_mascota_usuario_baja")
+  fechaBaja           DateTime? @map("estado_mascota_fecha_baja")
+
+  historicos MascotaEstado[]
+
+  @@map("estado_mascota")
+}
+
+model EstadoUsuario {
+  id          Int     @id @default(autoincrement()) @map("estado_usuario_id")
+  nombre      String  @unique @map("estado_usuario_nombre")
+  descripcion String? @map("estado_usuario_descripcion")
+
+  usuarioAlta         Int       @map("estado_usuario_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("estado_usuario_fecha_alta")
+  usuarioModificacion Int?      @map("estado_usuario_usuario_modificacion")
+  fechaModificacion   DateTime? @map("estado_usuario_fecha_modificacion")
+  usuarioBaja         Int?      @map("estado_usuario_usuario_baja")
+  fechaBaja           DateTime? @map("estado_usuario_fecha_baja")
+
+  usuarios Usuario[]
+
+  @@map("estado_usuario")
+}
+
+model EstadoRefugio {
+  id          Int     @id @default(autoincrement()) @map("estado_refugio_id")
+  nombre      String  @unique @map("estado_refugio_nombre")
+  descripcion String? @map("estado_refugio_descripcion")
+
+  usuarioAlta         Int       @map("estado_refugio_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("estado_refugio_fecha_alta")
+  usuarioModificacion Int?      @map("estado_refugio_usuario_modificacion")
+  fechaModificacion   DateTime? @map("estado_refugio_fecha_modificacion")
+  usuarioBaja         Int?      @map("estado_refugio_usuario_baja")
+  fechaBaja           DateTime? @map("estado_refugio_fecha_baja")
+
+  refugios Refugio[]
+
+  @@map("estado_refugio")
+}
+
+model EstadoSolicitud {
+  id          Int     @id @default(autoincrement()) @map("estado_solicitud_id")
+  nombre      String  @unique @map("estado_solicitud_nombre")
+  descripcion String? @map("estado_solicitud_descripcion")
+
+  usuarioAlta         Int       @map("estado_solicitud_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("estado_solicitud_fecha_alta")
+  usuarioModificacion Int?      @map("estado_solicitud_usuario_modificacion")
+  fechaModificacion   DateTime? @map("estado_solicitud_fecha_modificacion")
+  usuarioBaja         Int?      @map("estado_solicitud_usuario_baja")
+  fechaBaja           DateTime? @map("estado_solicitud_fecha_baja")
+
+  historicos SolicitudEstado[]
+
+  @@map("estado_solicitud")
+}
+
+model EstadoCampania {
+  id          Int     @id @default(autoincrement()) @map("estado_campania_id")
+  nombre      String  @unique @map("estado_campania_nombre")
+  descripcion String? @map("estado_campania_descripcion")
+
+  usuarioAlta         Int       @map("estado_campania_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("estado_campania_fecha_alta")
+  usuarioModificacion Int?      @map("estado_campania_usuario_modificacion")
+  fechaModificacion   DateTime? @map("estado_campania_fecha_modificacion")
+  usuarioBaja         Int?      @map("estado_campania_usuario_baja")
+  fechaBaja           DateTime? @map("estado_campania_fecha_baja")
+
+  campanias Campania[]
+
+  @@map("estado_campania")
+}
+
+model EstadoAnimalPerdido {
+  id          Int     @id @default(autoincrement()) @map("estado_animal_perdido_id")
+  nombre      String  @unique @map("estado_animal_perdido_nombre")
+  descripcion String? @map("estado_animal_perdido_descripcion")
+
+  usuarioAlta         Int       @map("estado_animal_perdido_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("estado_animal_perdido_fecha_alta")
+  usuarioModificacion Int?      @map("estado_animal_perdido_usuario_modificacion")
+  fechaModificacion   DateTime? @map("estado_animal_perdido_fecha_modificacion")
+  usuarioBaja         Int?      @map("estado_animal_perdido_usuario_baja")
+  fechaBaja           DateTime? @map("estado_animal_perdido_fecha_baja")
+
+  reportes AnimalPerdido[]
+
+  @@map("estado_animal_perdido")
+}
+
+model TipoSolicitud {
+  id            Int     @id @default(autoincrement()) @map("tipo_solicitud_id")
+  nombre        String  @unique @map("tipo_solicitud_nombre")
+  descripcion   String? @map("tipo_solicitud_descripcion")
+  secuenciaDias Int     @map("tipo_solicitud_secuencia_dias")
+
+  usuarioAlta         Int       @map("tipo_solicitud_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("tipo_solicitud_fecha_alta")
+  usuarioModificacion Int?      @map("tipo_solicitud_usuario_modificacion")
+  fechaModificacion   DateTime? @map("tipo_solicitud_fecha_modificacion")
+  usuarioBaja         Int?      @map("tipo_solicitud_usuario_baja")
+  fechaBaja           DateTime? @map("tipo_solicitud_fecha_baja")
+
+  solicitudes Solicitud[]
+
+  @@map("tipo_solicitud")
+}
+
+model Rol {
+  id          Int     @id @default(autoincrement()) @map("rol_id")
+  nombre      String  @unique @map("rol_nombre")
+  descripcion String? @map("rol_descripcion")
+
+  usuarioAlta         Int       @map("rol_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("rol_fecha_alta")
+  usuarioModificacion Int?      @map("rol_usuario_modificacion")
+  fechaModificacion   DateTime? @map("rol_fecha_modificacion")
+  usuarioBaja         Int?      @map("rol_usuario_baja")
+  fechaBaja           DateTime? @map("rol_fecha_baja")
+
+  usuarios RolUsuario[]
+
+  @@map("rol")
+}
+
+// ─────────────── USUARIOS ───────────────
+
+model Usuario {
+  id         Int     @id @default(autoincrement()) @map("usuario_id")
+  nombre     String  @map("usuario_nombre")
+  apellido   String  @map("usuario_apellido")
+  email      String  @unique @map("usuario_email")
+  contrasena String  @map("usuario_contrasena")
+  telefono   String? @map("usuario_telefono")
+  dni        String  @unique @map("usuario_dni")
+  verificado Boolean @default(false) @map("usuario_verificado")
+  imagenUrl  String? @map("usuario_imagen_url")
+  refugioId  Int?    @map("refugio_id")
+  estadoId   Int     @map("estado_id")
+
+  usuarioAlta         Int       @map("usuario_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("usuario_fecha_alta")
+  usuarioModificacion Int?      @map("usuario_usuario_modificacion")
+  fechaModificacion   DateTime? @map("usuario_fecha_modificacion")
+  usuarioBaja         Int?      @map("usuario_usuario_baja")
+  fechaBaja           DateTime? @map("usuario_fecha_baja")
+
+  refugio Refugio?      @relation(fields: [refugioId], references: [id])
+  estado  EstadoUsuario @relation(fields: [estadoId], references: [id])
+
+  roles                RolUsuario[]
+  mascotas             Mascota[]
+  publicaciones        Publicacion[]
+  favoritos            Favorito[]
+  solicitudes          Solicitud[]
+  resenasComoAutor     Resena[]        @relation("ResenaAutor")
+  resenasComoReportado Resena[]        @relation("ResenaReportado")
+  chats                UsuarioChat[]
+  mensajes             Mensaje[]
+  notificaciones       Notificacion[]
+  hogares              Hogar[]
+  donaciones           Donacion[]
+  reportesPerdido      AnimalPerdido[]
+
+  @@map("usuario")
+}
+
+model RolUsuario {
+  id        Int @id @default(autoincrement()) @map("rol_usuario_id")
+  usuarioId Int @map("usuario_id")
+  rolId     Int @map("rol_id")
+
+  usuarioAlta         Int       @map("rol_usuario_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("rol_usuario_fecha_alta")
+  usuarioModificacion Int?      @map("rol_usuario_usuario_modificacion")
+  fechaModificacion   DateTime? @map("rol_usuario_fecha_modificacion")
+  usuarioBaja         Int?      @map("rol_usuario_usuario_baja")
+  fechaBaja           DateTime? @map("rol_usuario_fecha_baja")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  rol     Rol     @relation(fields: [rolId], references: [id])
+
+  @@index([usuarioId, rolId])
+  @@map("rol_usuario")
+}
+
+// ─────────────── REFUGIOS ───────────────
+
+model Refugio {
+  id          Int     @id @default(autoincrement()) @map("refugio_id")
+  nombre      String  @map("refugio_nombre")
+  direccion   String  @map("refugio_direccion")
+  telefono    String? @map("refugio_telefono")
+  email       String? @map("refugio_email")
+  descripcion String? @map("refugio_descripcion")
+  verificado  Boolean @default(false) @map("refugio_verificado")
+  imagenUrl   String? @map("refugio_imagen_url")
+  estadoId    Int     @map("estado_id")
+
+  usuarioAlta         Int       @map("refugio_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("refugio_fecha_alta")
+  usuarioModificacion Int?      @map("refugio_usuario_modificacion")
+  fechaModificacion   DateTime? @map("refugio_fecha_modificacion")
+  usuarioBaja         Int?      @map("refugio_usuario_baja")
+  fechaBaja           DateTime? @map("refugio_fecha_baja")
+
+  estado EstadoRefugio @relation(fields: [estadoId], references: [id])
+
+  usuarios             Usuario[]
+  mascotas             Mascota[]
+  campanias            Campania[]
+  resenasComoReportado Resena[]   @relation("ResenaReportado")
+  chats                Chat[]
+
+  @@map("refugio")
+}
+
+// ─────────────── MASCOTAS ───────────────
+
 model Mascota {
-  id              Int           @id @default(autoincrement()) @map("masc_id")
-  nombre          String?
-  fechaNacimiento DateTime?     @map("fecha_nacimiento")
-  genero          GeneroMascota
-  castrado        Boolean       @default(false)
-  descripcion     String?
+  id              Int           @id @default(autoincrement()) @map("mascota_id")
+  nombre          String?       @map("mascota_nombre")
+  fechaNacimiento DateTime?     @map("mascota_fecha_nacimiento")
+  genero          GeneroMascota @map("mascota_genero")
+  castrado        Boolean       @default(false) @map("mascota_castrado")
+  descripcion     String?       @map("mascota_descripcion")
+  imagenUrl       String?       @map("mascota_imagen_url")
   razaId          Int           @map("raza_id")
   refugioId       Int?          @map("refugio_id")
-  usuarioId       Int?          @map("usuario_id")
-  estado          EstadoMascota @default(DISPONIBLE)
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  usuarioId       Int           @map("usuario_id")
 
-  raza          Raza                @relation(fields: [razaId], references: [id])
-  refugio       Refugio?            @relation(fields: [refugioId], references: [id])
-  usuario       Usuario?            @relation(fields: [usuarioId], references: [id])
-  fotos         Foto[]
-  historiales   HistorialClinico[]
-  vacunaciones  Vacunacion[]
-  favoritos     Favorito[]
-  publicaciones Publicacion[]
-  solicitudes   SolicitudAdopcion[]
-  transitos     Transito[]
-  padrinazgos   Padrinazgo[]
-  reportes      AnimalPerdido[]
+  usuarioAlta         Int       @map("mascota_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("mascota_fecha_alta")
+  usuarioModificacion Int?      @map("mascota_usuario_modificacion")
+  fechaModificacion   DateTime? @map("mascota_fecha_modificacion")
+  usuarioBaja         Int?      @map("mascota_usuario_baja")
+  fechaBaja           DateTime? @map("mascota_fecha_baja")
+
+  raza    Raza     @relation(fields: [razaId], references: [id])
+  refugio Refugio? @relation(fields: [refugioId], references: [id])
+  usuario Usuario  @relation(fields: [usuarioId], references: [id])
+
+  historicoEstados MascotaEstado[]
+  publicaciones    Publicacion[]
+  favoritos        Favorito[]
+  historiaClinica  HistoriaClinica[]
+  reportesPerdido  AnimalPerdido[]
 
   @@map("mascota")
 }
 
-model Foto {
-  id          Int     @id @default(autoincrement()) @map("foto_id")
-  url         String
-  mascotaId   Int     @map("mascota_id")
-  esPrincipal Boolean @default(false) @map("es_principal")
+// Histórico N:1 de estados de una mascota — sin par de modificación propio
+// (MODELO_DATOS.md: "auditoría alta/baja, sin campo de modificación propio distinto del genérico").
+model MascotaEstado {
+  id              Int @id @default(autoincrement()) @map("mascota_estado_id")
+  mascotaId       Int @map("mascota_id")
+  estadoMascotaId Int @map("estado_mascota_id")
 
-  mascota Mascota @relation(fields: [mascotaId], references: [id])
+  usuarioAlta Int       @map("mascota_estado_usuario_alta")
+  fechaAlta   DateTime  @default(now()) @map("mascota_estado_fecha_alta")
+  usuarioBaja Int?      @map("mascota_estado_usuario_baja")
+  fechaBaja   DateTime? @map("mascota_estado_fecha_baja")
 
-  @@map("foto")
-}
+  mascota       Mascota       @relation(fields: [mascotaId], references: [id])
+  estadoMascota EstadoMascota @relation(fields: [estadoMascotaId], references: [id])
 
-model HistorialClinico {
-  id          Int      @id @default(autoincrement()) @map("hist_id")
-  mascotaId   Int      @map("mascota_id")
-  usuarioId   Int      @map("usuario_id")
-  fecha       DateTime @default(now())
-  descripcion String
-
-  mascota Mascota @relation(fields: [mascotaId], references: [id])
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@map("historial_clinico")
-}
-
-model Vacunacion {
-  id                  Int       @id @default(autoincrement()) @map("vacuna_id")
-  mascotaId           Int       @map("mascota_id")
-  nombreVacuna        String    @map("nombre_vacuna")
-  fecha               DateTime
-  proximaFecha        DateTime? @map("proxima_fecha")
-  recordatorioEnviado Boolean   @default(false) @map("recordatorio_enviado")
-
-  mascota Mascota @relation(fields: [mascotaId], references: [id])
-
-  @@map("vacunacion")
-}
-
-model Favorito {
-  id        Int      @id @default(autoincrement()) @map("fav_id")
-  usuarioId Int      @map("usuario_id")
-  mascotaId Int      @map("mascota_id")
-  fecha     DateTime @default(now())
-
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-  mascota Mascota @relation(fields: [mascotaId], references: [id])
-
-  @@unique([usuarioId, mascotaId])
-  @@map("favorito")
+  @@map("mascota_estado")
 }
 
 // ─────────────── PUBLICACIONES ───────────────
 
 model Publicacion {
-  id             Int               @id @default(autoincrement()) @map("pub_id")
-  mascotaId      Int               @map("mascota_id")
-  publicadoPorId Int               @map("publicado_por_id")
-  titulo         String
-  descripcion    String?
-  fechaCreacion  DateTime          @default(now()) @map("fecha_creacion")
-  estado         EstadoPublicacion @default(ACTIVA)
+  id          Int     @id @default(autoincrement()) @map("publicacion_id")
+  titulo      String  @map("publicacion_titulo")
+  descripcion String? @map("publicacion_descripcion")
+  imagenUrl   String? @map("publicacion_imagen_url")
+  mascotaId   Int     @map("mascota_id")
+  usuarioId   Int     @map("usuario_id")
 
-  mascota      Mascota   @relation(fields: [mascotaId], references: [id])
-  publicadoPor Usuario   @relation(fields: [publicadoPorId], references: [id])
-  adjuntos     Adjunto[]
+  usuarioAlta         Int       @map("publicacion_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("publicacion_fecha_alta")
+  usuarioModificacion Int?      @map("publicacion_usuario_modificacion")
+  fechaModificacion   DateTime? @map("publicacion_fecha_modificacion")
+  usuarioBaja         Int?      @map("publicacion_usuario_baja")
+  fechaBaja           DateTime? @map("publicacion_fecha_baja")
+
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  solicitudes Solicitud[]
 
   @@map("publicacion")
 }
 
-model Adjunto {
-  id            Int    @id @default(autoincrement()) @map("adj_id")
-  publicacionId Int    @map("pub_id")
-  url           String
-  tipo          String
+model Favorito {
+  id        Int @id @default(autoincrement()) @map("favorito_id")
+  usuarioId Int @map("usuario_id")
+  mascotaId Int @map("mascota_id")
 
-  publicacion Publicacion @relation(fields: [publicacionId], references: [id])
-
-  @@map("adjunto")
-}
-
-// ─────────────── ADOPCIÓN ───────────────
-
-model SolicitudAdopcion {
-  id             Int             @id @default(autoincrement()) @map("soli_id")
-  mascotaId      Int             @map("mascota_id")
-  solicitanteId  Int             @map("solicitante_id")
-  fechaSolicitud DateTime        @default(now()) @map("fecha_solicitud")
-  motivacion     String
-  estado         EstadoSolicitud @default(PENDIENTE)
-  fechaRespuesta DateTime?       @map("fecha_respuesta")
-  comentario     String? // motivo obligatorio si RECHAZADA (se valida en servicio)
-
-  mascota      Mascota       @relation(fields: [mascotaId], references: [id])
-  solicitante  Usuario       @relation(fields: [solicitanteId], references: [id])
-  seguimientos Seguimiento[]
-
-  @@map("solicitud_adopcion")
-}
-
-model Seguimiento {
-  id          Int      @id @default(autoincrement()) @map("seg_id")
-  solicitudId Int      @map("solicitud_id")
-  fecha       DateTime @default(now())
-  descripcion String?
-  fotoUrl     String?  @map("foto_url")
-
-  solicitud SolicitudAdopcion @relation(fields: [solicitudId], references: [id])
-
-  @@map("seguimiento")
-}
-
-// ─────────────── TRÁNSITO ───────────────
-
-model HogarTransito {
-  id            Int          @id @default(autoincrement()) @map("hog_id")
-  usuarioId     Int          @map("usuario_id")
-  direccion     String
-  tienePatio    Boolean      @default(false) @map("tiene_patio")
-  tipoVivienda  TipoVivienda @map("tipo_vivienda")
-  tieneMascotas Boolean      @default(false) @map("tiene_mascotas")
-  descripcion   String?
-  disponible    Boolean      @default(true)
-
-  usuario   Usuario    @relation(fields: [usuarioId], references: [id])
-  transitos Transito[]
-
-  @@map("hogar_transito")
-}
-
-model Transito {
-  id             Int            @id @default(autoincrement()) @map("tran_id")
-  mascotaId      Int            @map("mascota_id")
-  hogarId        Int            @map("hogar_id")
-  fechaSolicitud DateTime       @default(now()) @map("fecha_solicitud")
-  fechaInicio    DateTime?      @map("fecha_inicio")
-  fechaFin       DateTime?      @map("fecha_fin")
-  notas          String?
-  estado         EstadoTransito @default(PENDIENTE)
-
-  mascota Mascota       @relation(fields: [mascotaId], references: [id])
-  hogar   HogarTransito @relation(fields: [hogarId], references: [id])
-
-  @@map("transito")
-}
-
-// ─────────────── COMUNIDAD ───────────────
-
-model Campania {
-  id          Int            @id @default(autoincrement()) @map("camp_id")
-  refugioId   Int            @map("refugio_id")
-  titulo      String
-  descripcion String
-  objetivo    Decimal        @db.Decimal(12, 2)
-  fechaInicio DateTime       @map("fecha_inicio")
-  fechaFin    DateTime       @map("fecha_fin")
-  imagen      String?
-  estado      EstadoCampania @default(BORRADOR)
-
-  refugio Refugio @relation(fields: [refugioId], references: [id])
-
-  @@map("campania")
-}
-
-model Padrinazgo {
-  id          Int                  @id @default(autoincrement()) @map("pad_id")
-  usuarioId   Int                  @map("usuario_id")
-  mascotaId   Int                  @map("mascota_id")
-  monto       Decimal              @db.Decimal(12, 2)
-  frecuencia  FrecuenciaPadrinazgo
-  fechaInicio DateTime             @default(now()) @map("fecha_inicio")
-  estado      EstadoPadrinazgo     @default(ACTIVO)
+  usuarioAlta         Int       @map("favorito_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("favorito_fecha_alta")
+  usuarioModificacion Int?      @map("favorito_usuario_modificacion")
+  fechaModificacion   DateTime? @map("favorito_fecha_modificacion")
+  usuarioBaja         Int?      @map("favorito_usuario_baja")
+  fechaBaja           DateTime? @map("favorito_fecha_baja")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
   mascota Mascota @relation(fields: [mascotaId], references: [id])
 
-  @@map("padrinazgo")
+  @@index([usuarioId, mascotaId])
+  @@map("favorito")
 }
 
-model Resena {
-  id         Int      @id @default(autoincrement()) @map("resena_id")
-  autorId    Int      @map("autor_id")
-  refugioId  Int      @map("refugio_id")
-  puntuacion Int // 1-5, validado en servicio
-  comentario String? // máx. 500 caracteres, validado en servicio
-  fecha      DateTime @default(now())
+// ─────────────── ADOPCIÓN ───────────────
 
-  autor   Usuario @relation(fields: [autorId], references: [id])
-  refugio Refugio @relation(fields: [refugioId], references: [id])
+model Solicitud {
+  id              Int       @id @default(autoincrement()) @map("solicitud_id")
+  motivacion      String    @map("solicitud_motivacion")
+  fechaRespuesta  DateTime? @map("solicitud_fecha_respuesta")
+  comentario      String?   @map("solicitud_comentario")
+  publicacionId   Int       @map("publicacion_id")
+  usuarioId       Int       @map("usuario_id")
+  tipoSolicitudId Int       @map("tipo_solicitud_id")
+
+  usuarioAlta         Int       @map("solicitud_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("solicitud_fecha_alta")
+  usuarioModificacion Int?      @map("solicitud_usuario_modificacion")
+  fechaModificacion   DateTime? @map("solicitud_fecha_modificacion")
+  usuarioBaja         Int?      @map("solicitud_usuario_baja")
+  fechaBaja           DateTime? @map("solicitud_fecha_baja")
+
+  publicacion   Publicacion   @relation(fields: [publicacionId], references: [id])
+  usuario       Usuario       @relation(fields: [usuarioId], references: [id])
+  tipoSolicitud TipoSolicitud @relation(fields: [tipoSolicitudId], references: [id])
+
+  historicoEstados SolicitudEstado[]
+  seguimientos     Seguimiento[]
+
+  @@map("solicitud")
+}
+
+model SolicitudEstado {
+  id                Int @id @default(autoincrement()) @map("solicitud_estado_id")
+  solicitudId       Int @map("solicitud_id")
+  estadoSolicitudId Int @map("estado_solicitud_id")
+
+  usuarioAlta         Int       @map("solicitud_estado_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("solicitud_estado_fecha_alta")
+  usuarioModificacion Int?      @map("solicitud_estado_usuario_modificacion")
+  fechaModificacion   DateTime? @map("solicitud_estado_fecha_modificacion")
+  usuarioBaja         Int?      @map("solicitud_estado_usuario_baja")
+  fechaBaja           DateTime? @map("solicitud_estado_fecha_baja")
+
+  solicitud       Solicitud       @relation(fields: [solicitudId], references: [id])
+  estadoSolicitud EstadoSolicitud @relation(fields: [estadoSolicitudId], references: [id])
+
+  @@map("solicitud_estado")
+}
+
+// ─────────────── HISTORIA CLÍNICA ───────────────
+
+model HistoriaClinica {
+  id               Int       @id @default(autoincrement()) @map("historia_clinica_id")
+  fechaVisita      DateTime  @map("historia_clinica_fecha_visita")
+  fechaProxima     DateTime? @map("historia_clinica_fecha_proxima")
+  requiereRevision Boolean   @default(false) @map("historia_clinica_requiere_revision")
+  vacunacion       Boolean   @default(false) @map("historia_clinica_vacunacion")
+  titulo           String    @map("historia_clinica_titulo")
+  descripcion      String    @map("historia_clinica_descripcion")
+  documentoUrl     String?   @map("historia_clinica_documento_url")
+  mascotaId        Int       @map("mascota_id")
+
+  // Regla crítica: inmutable. No hay UPDATE sobre un registro persistido — "modificar" es
+  // baja lógica + alta de uno nuevo. usuarioModificacion/fechaModificacion no deberían
+  // poblarse nunca en la práctica (si aparecen con valor, es una señal de bug).
+  usuarioAlta         Int       @map("historia_clinica_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("historia_clinica_fecha_alta")
+  usuarioModificacion Int?      @map("historia_clinica_usuario_modificacion")
+  fechaModificacion   DateTime? @map("historia_clinica_fecha_modificacion")
+  usuarioBaja         Int?      @map("historia_clinica_usuario_baja")
+  fechaBaja           DateTime? @map("historia_clinica_fecha_baja")
+
+  mascota Mascota @relation(fields: [mascotaId], references: [id])
+
+  @@map("historia_clinica")
+}
+
+// ─────────────── SEGUIMIENTO POST-ADOPCIÓN ───────────────
+
+model PreguntaSeguimiento {
+  id         Int     @id @default(autoincrement()) @map("pregunta_seguimiento_id")
+  texto      String  @map("pregunta_seguimiento_texto")
+  posicion   Int     @map("pregunta_seguimiento_posicion")
+  esAdopcion Boolean @map("pregunta_seguimiento_es_adopcion")
+
+  usuarioAlta         Int       @map("pregunta_seguimiento_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("pregunta_seguimiento_fecha_alta")
+  usuarioModificacion Int?      @map("pregunta_seguimiento_usuario_modificacion")
+  fechaModificacion   DateTime? @map("pregunta_seguimiento_fecha_modificacion")
+  usuarioBaja         Int?      @map("pregunta_seguimiento_usuario_baja")
+  fechaBaja           DateTime? @map("pregunta_seguimiento_fecha_baja")
+
+  seguimientos Seguimiento[]
+
+  @@map("pregunta_seguimiento")
+}
+
+model Seguimiento {
+  id                    Int       @id @default(autoincrement()) @map("seguimiento_id")
+  descripcion           String?   @map("seguimiento_descripcion")
+  fotoUrl               String?   @map("seguimiento_foto_url")
+  plazo                 DateTime? @map("seguimiento_plazo")
+  solicitudId           Int       @map("solicitud_id")
+  preguntaSeguimientoId Int       @map("pregunta_seguimiento_id")
+
+  usuarioAlta         Int       @map("seguimiento_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("seguimiento_fecha_alta")
+  usuarioModificacion Int?      @map("seguimiento_usuario_modificacion")
+  fechaModificacion   DateTime? @map("seguimiento_fecha_modificacion")
+  usuarioBaja         Int?      @map("seguimiento_usuario_baja")
+  fechaBaja           DateTime? @map("seguimiento_fecha_baja")
+
+  solicitud           Solicitud           @relation(fields: [solicitudId], references: [id])
+  preguntaSeguimiento PreguntaSeguimiento @relation(fields: [preguntaSeguimientoId], references: [id])
+
+  @@map("seguimiento")
+}
+
+// ─────────────── REPUTACIÓN ───────────────
+
+model Resena {
+  id                 Int     @id @default(autoincrement()) @map("resena_id")
+  puntuacion         Int     @map("resena_puntuacion")
+  comentario         String? @map("resena_comentario")
+  usuarioAutorId     Int     @map("resena_usuario_autor")
+  refugioReportadoId Int?    @map("refugio_reportado_id")
+  usuarioReportadoId Int?    @map("usuario_reportado_id")
+
+  usuarioAlta         Int       @map("resena_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("resena_fecha_alta")
+  usuarioModificacion Int?      @map("resena_usuario_modificacion")
+  fechaModificacion   DateTime? @map("resena_fecha_modificacion")
+  usuarioBaja         Int?      @map("resena_usuario_baja")
+  fechaBaja           DateTime? @map("resena_fecha_baja")
+
+  autor            Usuario  @relation("ResenaAutor", fields: [usuarioAutorId], references: [id])
+  refugioReportado Refugio? @relation("ResenaReportado", fields: [refugioReportadoId], references: [id])
+  usuarioReportado Usuario? @relation("ResenaReportado", fields: [usuarioReportadoId], references: [id])
 
   @@map("resena")
 }
 
-model AnimalPerdido {
-  id                  Int                 @id @default(autoincrement()) @map("reporte_id")
-  usuarioReportanteId Int                 @map("usuario_reportante_id")
-  mascotaId           Int?                @map("mascota_id")
-  descripcion         String
-  fotoUrl             String              @map("foto_url")
-  latitud             Float
-  longitud            Float
-  fecha               DateTime            @default(now())
-  estado              EstadoAnimalPerdido @default(PERDIDO)
+// ─────────────── CHAT ───────────────
+// Chat: "alta y baja" explícito en la nota de Mensaje (cita textual del doc de requisitos)
+// — sin par de modificación propio, igual que Mascota_Estado.
 
-  usuarioReportante Usuario  @relation(fields: [usuarioReportanteId], references: [id])
-  mascota           Mascota? @relation(fields: [mascotaId], references: [id])
+model Chat {
+  id        Int     @id @default(autoincrement()) @map("chat_id")
+  tipo      String? @map("chat_tipo") // valores sin confirmar — ver nota en MODELO_DATOS.md
+  refugioId Int?    @map("refugio_id")
 
-  @@map("animal_perdido")
+  usuarioAlta Int       @map("chat_usuario_alta")
+  fechaAlta   DateTime  @default(now()) @map("chat_fecha_alta")
+  usuarioBaja Int?      @map("chat_usuario_baja")
+  fechaBaja   DateTime? @map("chat_fecha_baja")
+
+  refugio Refugio? @relation(fields: [refugioId], references: [id])
+
+  participantes UsuarioChat[]
+  mensajes      Mensaje[]
+
+  @@map("chat")
 }
 
-// ─────────────── SISTEMA ───────────────
+model UsuarioChat {
+  id        Int @id @default(autoincrement()) @map("usuario_chat_id")
+  chatId    Int @map("chat_id")
+  usuarioId Int @map("usuario_id")
+
+  usuarioAlta         Int       @map("usuario_chat_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("usuario_chat_fecha_alta")
+  usuarioModificacion Int?      @map("usuario_chat_usuario_modificacion")
+  fechaModificacion   DateTime? @map("usuario_chat_fecha_modificacion")
+  usuarioBaja         Int?      @map("usuario_chat_usuario_baja")
+  fechaBaja           DateTime? @map("usuario_chat_fecha_baja")
+
+  chat    Chat    @relation(fields: [chatId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([chatId, usuarioId])
+  @@map("usuario_chat")
+}
+
+// Mensaje: solo alta, nunca baja ni modificación (MODELO_DATOS.md, excepción explícita).
+model Mensaje {
+  id        Int     @id @default(autoincrement()) @map("mensaje_id")
+  contenido String  @map("mensaje_contenido")
+  leido     Boolean @default(false) @map("mensaje_leido")
+  imagenUrl String? @map("mensaje_imagen_url")
+  chatId    Int     @map("chat_id")
+  usuarioId Int     @map("usuario_id")
+
+  usuarioAlta Int      @map("mensaje_usuario_alta")
+  fechaAlta   DateTime @default(now()) @map("mensaje_fecha_alta")
+
+  chat    Chat    @relation(fields: [chatId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("mensaje")
+}
+
+// ─────────────── NOTIFICACIONES ───────────────
 
 model Notificacion {
-  id        Int      @id @default(autoincrement()) @map("notif_id")
-  usuarioId Int      @map("usuario_id")
-  tipo      String
-  mensaje   String
-  leida     Boolean  @default(false)
-  fecha     DateTime @default(now())
+  id        Int     @id @default(autoincrement()) @map("notificacion_id")
+  tipo      String  @map("notificacion_tipo")
+  mensaje   String  @map("notificacion_mensaje")
+  leido     Boolean @default(false) @map("notificacion_leido")
+  usuarioId Int     @map("usuario_id")
+
+  usuarioAlta         Int       @map("notificacion_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("notificacion_fecha_alta")
+  usuarioModificacion Int?      @map("notificacion_usuario_modificacion")
+  fechaModificacion   DateTime? @map("notificacion_fecha_modificacion")
+  usuarioBaja         Int?      @map("notificacion_usuario_baja")
+  fechaBaja           DateTime? @map("notificacion_fecha_baja")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
   @@map("notificacion")
 }
 
-model LogAuditoria {
-  id        Int      @id @default(autoincrement()) @map("log_id")
-  usuarioId Int      @map("usuario_id")
-  accion    String
-  entidad   String
-  entidadId Int      @map("entidad_id")
-  fecha     DateTime @default(now())
-  detalle   String?
+// ─────────────── HOGARES DE TRÁNSITO ───────────────
+// Perfil extendido de Usuario, no un rol/módulo separado (ver ROADMAP.md).
+
+model Hogar {
+  id                   Int       @id @default(autoincrement()) @map("hogar_id")
+  direccion            String    @map("hogar_direccion")
+  tienePatio           Boolean   @default(false) @map("hogar_tiene_patio")
+  tieneMascotas        Boolean   @default(false) @map("hogar_tiene_mascotas")
+  descripcion          String?   @map("hogar_descripcion")
+  tipoVivienda         String?   @map("hogar_tipo_vivienda") // sin valores confirmados en el doc
+  inicioDisponibilidad DateTime? @map("hogar_inicio_disponibilidad")
+  finDisponibilidad    DateTime? @map("hogar_fin_disponibilidad")
+  imagenUrl            String?   @map("hogar_imagen_url")
+  usuarioId            Int       @map("usuario_id")
+
+  usuarioAlta         Int       @map("hogar_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("hogar_fecha_alta")
+  usuarioModificacion Int?      @map("hogar_usuario_modificacion")
+  fechaModificacion   DateTime? @map("hogar_fecha_modificacion")
+  usuarioBaja         Int?      @map("hogar_usuario_baja")
+  fechaBaja           DateTime? @map("hogar_fecha_baja")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
-  @@map("log_auditoria")
+  @@map("hogar")
 }
+
+// ─────────────── CAMPAÑAS Y DONACIONES ───────────────
+
+model Campania {
+  id               Int      @id @default(autoincrement()) @map("campania_id")
+  titulo           String   @map("campania_titulo")
+  descripcion      String   @map("campania_descripcion")
+  objetivo         Decimal  @map("campania_objetivo") @db.Decimal(12, 2)
+  fechaInicio      DateTime @map("campania_fecha_inicio")
+  fechaFin         DateTime @map("campania_fecha_fin")
+  imagenUrl        String?  @map("campania_imagen_url")
+  refugioId        Int      @map("refugio_id")
+  estadoCampaniaId Int      @map("estado_campania_id")
+
+  usuarioAlta         Int       @map("campania_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("campania_fecha_alta")
+  usuarioModificacion Int?      @map("campania_usuario_modificacion")
+  fechaModificacion   DateTime? @map("campania_fecha_modificacion")
+  usuarioBaja         Int?      @map("campania_usuario_baja")
+  fechaBaja           DateTime? @map("campania_fecha_baja")
+
+  refugio        Refugio        @relation(fields: [refugioId], references: [id])
+  estadoCampania EstadoCampania @relation(fields: [estadoCampaniaId], references: [id])
+
+  donaciones Donacion[]
+
+  @@map("campania")
+}
+
+model Donacion {
+  id         Int     @id @default(autoincrement()) @map("donacion_id")
+  monto      Decimal @map("donacion_monto") @db.Decimal(12, 2)
+  campaniaId Int     @map("campania_id")
+  usuarioId  Int     @map("usuario_id")
+
+  usuarioAlta         Int       @map("donacion_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("donacion_fecha_alta")
+  usuarioModificacion Int?      @map("donacion_usuario_modificacion")
+  fechaModificacion   DateTime? @map("donacion_fecha_modificacion")
+  usuarioBaja         Int?      @map("donacion_usuario_baja")
+  fechaBaja           DateTime? @map("donacion_fecha_baja")
+
+  campania Campania @relation(fields: [campaniaId], references: [id])
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("donacion")
+}
+
+// ─────────────── MASCOTAS PERDIDAS Y ENCONTRADAS ───────────────
+
+model AnimalPerdido {
+  id                    Int       @id @default(autoincrement()) @map("animal_perdido_id")
+  descripcion           String    @map("animal_perdido_descripcion")
+  imagenUrl             String    @map("animal_perdido_imagen_url")
+  latitud               Float     @map("animal_perdido_latitud")
+  longitud              Float     @map("animal_perdido_longitud")
+  fechaResuelto         DateTime? @map("animal_perdido_fecha_resuelto")
+  usuarioReportanteId   Int       @map("usuario_reportante_id")
+  mascotaId             Int?      @map("mascota_id")
+  estadoAnimalPerdidoId Int       @map("estado_animal_perdido_id")
+
+  usuarioAlta         Int       @map("animal_perdido_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("animal_perdido_fecha_alta")
+  usuarioModificacion Int?      @map("animal_perdido_usuario_modificacion")
+  fechaModificacion   DateTime? @map("animal_perdido_fecha_modificacion")
+  usuarioBaja         Int?      @map("animal_perdido_usuario_baja")
+  fechaBaja           DateTime? @map("animal_perdido_fecha_baja")
+
+  usuarioReportante   Usuario             @relation(fields: [usuarioReportanteId], references: [id])
+  mascota             Mascota?            @relation(fields: [mascotaId], references: [id])
+  estadoAnimalPerdido EstadoAnimalPerdido @relation(fields: [estadoAnimalPerdidoId], references: [id])
+
+  @@map("animal_perdido")
+}
+
+// ─────────────── MODERACIÓN Y REPORTES ───────────────
+// Sin FKs por ahora (así quedó en MODELO_DATOS.md) — pendiente de confirmar antes de Fase 9
+// del ROADMAP (ver "Entidades cuya existencia formal hay que confirmar" en el doc).
+
+model ReporteProblema {
+  id             Int     @id @default(autoincrement()) @map("reporte_problema_id")
+  motivo         String  @map("reporte_problema_motivo")
+  respuesta      String? @map("reporte_problema_respuesta")
+  resuelto       Boolean @default(false) @map("reporte_problema_resuelto")
+  mensajeSistema String? @map("reporte_problema_mensaje_sistema")
+
+  usuarioAlta         Int       @map("reporte_problema_usuario_alta")
+  fechaAlta           DateTime  @default(now()) @map("reporte_problema_fecha_alta")
+  usuarioModificacion Int?      @map("reporte_problema_usuario_modificacion")
+  fechaModificacion   DateTime? @map("reporte_problema_fecha_modificacion")
+  usuarioBaja         Int?      @map("reporte_problema_usuario_baja")
+  fechaBaja           DateTime? @map("reporte_problema_fecha_baja")
+
+  @@map("reporte_problema")
+}
+
+// El log de auditoría de CONSTITUTION.md §4 ("Operaciones críticas registran entrada en
+// LogAuditoria") NO vive en la base — se implementa como archivo de texto append-only
+// (ver logs/ en la raíz del repo, ya contemplado en .gitignore) en el middleware de
+// auditoría genérico de src/shared/, no como tabla Prisma.
