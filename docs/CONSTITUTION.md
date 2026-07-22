@@ -46,4 +46,4 @@ Lo excluido en el anteproyecto queda excluido: sin pasarela de pagos (solo alias
 
 ## 8. Definición de terminado (DoD)
 
-Una historia está terminada cuando: cumple los criterios de aceptación de su spec, tiene validaciones de backend, pasa lint y build, fue probada manualmente en mobile, el PR fue revisado y mergeado a `dev`, y la documentación afectada está actualizada.
+Una historia está terminada cuando: cumple los criterios de aceptación de su spec, tiene validaciones de backend, pasa lint, formato, build y tests (CI en GitHub Actions), fue probada manualmente en mobile, el PR fue revisado y mergeado a `dev`, y la documentación afectada está actualizada.
