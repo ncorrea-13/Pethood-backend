@@ -20,6 +20,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Preparar .env
+        # CI no tiene .env (gitignoreado). Se deriva de .env.example, la misma plantilla
+        # que usa cualquiera que clona el repo — nada de secretos hardcodeados en el workflow.
+        run: cp .env.example .env
+
       - name: Generar Prisma Client
         run: npx prisma generate
 
