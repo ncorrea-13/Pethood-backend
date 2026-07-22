@@ -13,7 +13,7 @@ Lo excluido en el anteproyecto queda excluido: sin pasarela de pagos (solo alias
 ## 3. Git Flow
 
 - `main`: solo releases estables. Nunca se commitea directo.
-- `developer`: rama de integración. Se llega por Pull Request desde ramas `dev-<nombre>` o `feature/<modulo>`.
+- `dev`: rama de integración. Se llega por Pull Request desde ramas `dev-<nombre>` o `feature/<modulo>`.
 - Todo PR requiere revisión de al menos un compañero antes de mergear.
 - Commits en español, formato convencional: `feat: ...`, `fix: ...`, `docs: ...`, `refactor: ...`, `test: ...`.
 
@@ -23,7 +23,7 @@ Lo excluido en el anteproyecto queda excluido: sin pasarela de pagos (solo alias
 - Contraseñas hasheadas con bcrypt. Nunca en texto plano, nunca en logs.
 - Autenticación con JWT; toda ruta privada pasa por middleware de auth y control de rol.
 - Validación de entrada en TODOS los endpoints (Zod) — nunca confiar en el cliente.
-- Operaciones críticas registran entrada en `LogAuditoria` (quién, qué, cuándo).
+- Operaciones críticas registran entrada de auditoría (quién, qué, cuándo) en un **archivo de texto append-only** (carpeta `logs/`, ya gitignoreada), nunca en una tabla de la base — no existe entidad `LogAuditoria` en `prisma/schema.prisma`.
 
 ## 5. Convenciones de código
 
@@ -46,4 +46,4 @@ Lo excluido en el anteproyecto queda excluido: sin pasarela de pagos (solo alias
 
 ## 8. Definición de terminado (DoD)
 
-Una historia está terminada cuando: cumple los criterios de aceptación de su spec, tiene validaciones de backend, pasa lint y build, fue probada manualmente en mobile, el PR fue revisado y mergeado a `developer`, y la documentación afectada está actualizada.
+Una historia está terminada cuando: cumple los criterios de aceptación de su spec, tiene validaciones de backend, pasa lint y build, fue probada manualmente en mobile, el PR fue revisado y mergeado a `dev`, y la documentación afectada está actualizada.
