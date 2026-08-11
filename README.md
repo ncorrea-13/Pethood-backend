@@ -7,8 +7,9 @@ API REST de PETHOOD — Express + TypeScript + PostgreSQL + Prisma.
 ```bash
 npm install
 cp .env.example .env        # completar valores
-docker compose up -d        # PostgreSQL local
-npx prisma migrate dev --name init
+docker compose up -d        # PostgreSQL local (puerto 5432)
+npx prisma migrate dev      # aplica las migraciones existentes
+npm run seed                # catálogos base (Especie, Raza, Estado_*, Rol, Tipo_Solicitud) + usuario SISTEMA
 npm run dev                 # http://localhost:3000/api/v1/health
 ```
 
