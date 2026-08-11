@@ -163,7 +163,9 @@ async function seedEspeciesYRazas(usuarioAlta: number) {
 async function main() {
   // 1) EstadoUsuario primero: Usuario.estadoId lo necesita como FK real.
   await seedEstadosUsuario(1);
-  const estadoActivo = await prisma.estadoUsuario.findUniqueOrThrow({ where: { nombre: 'Activo' } });
+  const estadoActivo = await prisma.estadoUsuario.findUniqueOrThrow({
+    where: { nombre: 'Activo' },
+  });
 
   // 2) Usuario SISTEMA: autor de todo lo demás.
   const sistemaId = await seedUsuarioSistema(estadoActivo.id);

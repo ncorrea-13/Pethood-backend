@@ -17,7 +17,11 @@ const FORMATO_POR_MIME: Record<string, 'jpeg' | 'png' | 'webp'> = {
  * Comprime asíncronamente req.file.buffer (si vino un archivo). No decide dónde ni cómo
  * se persiste — eso es responsabilidad del controller/service del módulo que lo use.
  */
-export async function comprimirImagen(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function comprimirImagen(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
   if (!req.file) {
     next();
     return;
