@@ -7,7 +7,9 @@ export interface PayloadToken {
 }
 
 export function firmarToken(payload: PayloadToken): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
+  });
 }
 
 export function verificarToken(token: string): PayloadToken {
