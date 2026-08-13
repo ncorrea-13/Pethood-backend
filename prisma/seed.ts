@@ -160,6 +160,89 @@ async function seedEspeciesYRazas(usuarioAlta: number) {
   }
 }
 
+/**
+ * Cuentas de prueba para poder usar la app de punta a punta mientras no exista el registro
+ * real. Nacen verificadas porque crear mascotas exige tener DNI y teléfono verificados.
+ * No se siembran en producción: son credenciales conocidas y fijas.
+ */
+async function seedUsuariosDePrueba(usuarioAlta: number, estadoActivoUsuarioId: number) {
+  if (process.env.NODE_ENV === 'production') {
+    console.log('⏭️  NODE_ENV=production: se omiten las cuentas de prueba.');
+    return;
+  }
+
+  const contrasena = await bcrypt.hash('Pethood123', 10);
+
+  const rolAdoptante = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Adoptante' } });
+  const rolRefugio = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Refugio' } });
+  const estadoRefugioActivo = await prisma.estadoRefugio.findUniqueOrThrow({
+    where: { nombre: 'Activo' },
+  });
+
+  // Adoptante particular.
+  const adoptante = await prisma.usuario.upsert({
+    where: { email: 'adoptante@pethood.test' },
+    update: {},
+    create: {
+      nombre: 'Ana',
+      apellido: 'Gomez',
+      email: 'adoptante@pethood.test',
+      contrasena,
+      telefono: '2611111111',
+      dni: '30111222',
+      verificado: true,
+      estadoId: estadoActivoUsuarioId,
+      usuarioAlta,
+    },
+  });
+  await asignarRol(adoptante.id, rolAdoptante.id, usuarioAlta);
+
+  // Refugio ya validado por el admin, con su usuario operativo.
+  const refugio = await prisma.refugio.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      nombre: 'Refugio Patitas',
+      direccion: 'Av. San Martín 1234, Mendoza',
+      telefono: '2612222222',
+      email: 'contacto@patitas.test',
+      verificado: true,
+      estadoId: estadoRefugioActivo.id,
+      usuarioAlta,
+    },
+  });
+
+  const usuarioRefugio = await prisma.usuario.upsert({
+    where: { email: 'refugio@pethood.test' },
+    update: {},
+    create: {
+      nombre: 'Bruno',
+      apellido: 'Diaz',
+      email: 'refugio@pethood.test',
+      contrasena,
+      telefono: '2613333333',
+      dni: '28444555',
+      verificado: true,
+      refugioId: refugio.id,
+      estadoId: estadoActivoUsuarioId,
+      usuarioAlta,
+    },
+  });
+  await asignarRol(usuarioRefugio.id, rolRefugio.id, usuarioAlta);
+
+  console.log('🔑 Cuentas de prueba: adoptante@pethood.test / refugio@pethood.test — Pethood123');
+}
+
+/** RolUsuario no tiene índice único, así que el upsert se hace a mano. */
+async function asignarRol(usuarioId: number, rolId: number, usuarioAlta: number) {
+  const existente = await prisma.rolUsuario.findFirst({
+    where: { usuarioId, rolId, fechaBaja: null },
+  });
+  if (existente) return;
+
+  await prisma.rolUsuario.create({ data: { usuarioId, rolId, usuarioAlta } });
+}
+
 async function main() {
   // 1) EstadoUsuario primero: Usuario.estadoId lo necesita como FK real.
   await seedEstadosUsuario(1);
@@ -179,6 +262,9 @@ async function main() {
   await seedRoles(sistemaId);
   await seedTiposSolicitud(sistemaId);
   await seedEspeciesYRazas(sistemaId);
+
+  // 4) Cuentas de prueba (solo fuera de producción): necesitan Rol y Estado_Refugio ya sembrados.
+  await seedUsuariosDePrueba(sistemaId, estadoActivo.id);
 
   console.log(`✅ Seed completo. Usuario SISTEMA id=${sistemaId}`);
 }
