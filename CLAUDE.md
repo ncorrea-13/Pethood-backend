@@ -82,7 +82,13 @@ src/
 │   ├── cancelar-solicitudes-vencidas.job.ts   # HU-7.6
 │   └── transicion-estados-campana.job.ts      # HU-12.4
 ├── websockets/          # infraestructura de Chat en tiempo real (HU-5.2)
-└── shared/              # mixin/base de auditoría, tipos comunes, utils
+└── shared/              # código transversal a todos los módulos:
+    ├── prisma.ts        # instancia única del cliente (solo la importan los repository)
+    ├── auditoria.ts     # helpers de alta/modificación/baja
+    ├── jwt.ts           # firma y verificación de tokens
+    ├── logAuditoria.ts  # log append-only de operaciones críticas
+    ├── storage.ts       # persistencia de archivos subidos
+    └── validation/      # reglas de validación reutilizables (ver "Validación" abajo)
 tests/
 ├── unit/
 └── integration/
@@ -94,12 +100,36 @@ prisma/schema.prisma     # fuente de verdad física del modelo
 - Rutas bajo `/api/v1`, recursos en plural en español sin tildes (`/mascotas`, `/solicitudes`).
 - Errores SIEMPRE con formato `{ error: { codigo, mensaje } }` vía `errorHandler`; los servicios lanzan `AppError(codigo, mensaje, httpStatus)`.
 - Toda entrada se valida con Zod (`<modulo>.dto.ts`) antes de llegar al servicio.
+- **Nunca escribir una validación genérica dentro de un `<modulo>.dto.ts`** — trim, longitudes, fechas, decimales, ids e imágenes viven en `src/shared/validation/` y el DTO solo las compone. Si te falta una regla, agregala ahí antes de usarla. Ver "Validación" más abajo.
 - `service.ts` nunca importa Prisma directamente — todo acceso a datos pasa por `repository.ts` del mismo módulo, para poder testear el service mockeando el repository.
 - Reglas de negocio (quotas, transiciones de estado, chat tras interacción) viven en servicios, nunca en el controller ni solo en el frontend.
 - Cron jobs en `jobs/`, testeables sin levantar el servidor HTTP.
 - Operaciones críticas escriben en `LogAuditoria`.
 - Prisma: modificar `schema.prisma` → `npx prisma migrate dev --name descripcion` → actualizar `docs/MODELO_DATOS.md` si cambia el modelo conceptual.
 - Nunca commitear `.env`; mantener `.env.example` al día.
+
+## Validación — `src/shared/validation/`
+
+Toda regla de validación **genérica** (o sea, que podría necesitar más de un módulo) vive acá, nunca suelta en un `<modulo>.dto.ts`. Antes de escribir una validación nueva, revisar si ya existe.
+
+| Archivo | Qué contiene | Depende de Zod |
+|---|---|---|
+| `limits.ts` | Longitudes y rangos de cada campo del dominio (`LIMITES.mascota.nombre`, etc.) | No |
+| `dates.ts` | Parseo y comparación de fechas: `parsearFecha`, `esFutura`, `esPasada`, `validarFechaPasada`, `aFechaISO` | No |
+| `numbers.ts` | `parsearDecimal` (acepta coma o punto), `parsearId` | No |
+| `text.ts` | `validarTexto` (trim + longitudes), `mensajeLongitud` | No |
+| `schemas.ts` | Adaptador que envuelve lo anterior en schemas Zod componibles | Sí |
+
+**Toda la lógica está en las funciones puras**; `schemas.ts` es solo una capa fina encima. Así se testean sin Zod y el día que cambie la librería de validación se toca un solo archivo.
+
+Un `<modulo>.dto.ts` se limita a componer:
+
+```ts
+nombre: textoSchema({ ...LIMITES.mascota.nombre, etiqueta: 'El nombre' }),
+peso:   decimalSchema({ ...LIMITES.mascota.peso, etiqueta: 'El peso' }),
+```
+
+`limits.ts` está **duplicado a mano** en `pethood-frontend/apps/mobile/shared/validation/limits.ts` (repos separados, no hay import posible). Si cambiás un número, cambialo en los dos en el mismo PR: si divergen, la UI corta a una longitud y el server valida otra.
 
 ## Cómo trabajar con esta documentación
 
