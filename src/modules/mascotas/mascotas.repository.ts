@@ -8,6 +8,8 @@ export interface DatosNuevaMascota {
   genero: GeneroMascota;
   peso: number;
   tamanio: TamanioMascota;
+  castrado: boolean;
+  descripcion: string | null;
   imagenUrl: string;
   razaId: number;
   refugioId: number | null;

@@ -8,6 +8,7 @@ import {
   decimalSchema,
   fechaPasadaSchema,
   idSchema,
+  textoOpcionalSchema,
   textoSchema,
 } from '../../shared/validation/schemas';
 
@@ -16,6 +17,12 @@ export const GENEROS = ['MACHO', 'HEMBRA'] as const;
 
 /** Un adoptante indica si registra una mascota propia o si la ofrece en adopción. */
 export const DESTINOS = ['PROPIA', 'ADOPCION'] as const;
+
+/** Llega como texto desde un form multipart: 'true'/'false' además de booleano. */
+const booleanoSchema = z
+  .union([z.boolean(), z.string()])
+  .optional()
+  .transform((valor) => valor === true || valor === 'true');
 
 /** Campos que piden por igual el formulario del adoptante y el del refugio. */
 const camposBase = {
@@ -26,6 +33,11 @@ const camposBase = {
   tamanio: z.enum(TAMANIOS, { required_error: 'El tamaño es obligatorio' }),
   especieId: idSchema('La especie'),
   razaId: idSchema('La raza'),
+  castrado: booleanoSchema,
+  descripcion: textoOpcionalSchema({
+    max: LIMITES.mascota.descripcion.max,
+    etiqueta: 'La descripción',
+  }),
 };
 
 /**
@@ -57,6 +69,8 @@ export interface MascotaCreadaDto {
   genero: string;
   peso: number | null;
   tamanio: string | null;
+  castrado: boolean;
+  descripcion: string | null;
   imagenUrl: string | null;
   especie: { id: number; nombre: string };
   raza: { id: number; nombre: string };
