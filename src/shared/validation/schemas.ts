@@ -22,6 +22,20 @@ export function textoSchema(opciones: { min?: number; max: number; etiqueta: str
   });
 }
 
+/** Texto que puede venir vacío. Devuelve null en ese caso, para guardarlo así en base. */
+export function textoOpcionalSchema(opciones: { max: number; etiqueta: string }) {
+  return z.unknown().transform((valor, ctx) => {
+    const resultado = validarTexto(valor, { ...opciones, obligatorio: false });
+
+    if (!resultado.valido) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: resultado.error });
+      return z.NEVER;
+    }
+
+    return resultado.valor === '' ? null : resultado.valor;
+  });
+}
+
 export function fechaPasadaSchema(etiqueta: string) {
   return z.unknown().transform((valor, ctx) => {
     const resultado = validarFechaPasada(valor as string | Date, etiqueta);

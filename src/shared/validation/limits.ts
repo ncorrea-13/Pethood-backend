@@ -9,6 +9,8 @@ export const LIMITES = {
     nombre: { min: 2, max: 25 },
     /** El techo de 999.9 es lo que entra en `Decimal(4,1)`, no una regla de negocio. */
     peso: { min: 0.1, max: 999.9, decimales: 1 },
+    /** Opcional. No confundir con la descripción de la publicación, que va aparte y es ≤50. */
+    descripcion: { max: 2000 },
   },
 
   publicacion: {
