@@ -31,6 +31,14 @@ export async function guardarImagen(
   return `${RUTA_PUBLICA_ARCHIVOS}/${subcarpeta}/${nombre}`;
 }
 
+/** Guarda varias imágenes conservando el orden recibido. */
+export function guardarImagenes(
+  archivos: { buffer: Buffer; mimetype: string }[],
+  subcarpeta: string,
+): Promise<string[]> {
+  return Promise.all(archivos.map((archivo) => guardarImagen(archivo, subcarpeta)));
+}
+
 /** Compensa una imagen ya guardada cuando falla la escritura en base. No lanza. */
 export async function borrarImagen(urlPublica: string): Promise<void> {
   const relativa = urlPublica.replace(`${RUTA_PUBLICA_ARCHIVOS}/`, '');
@@ -41,4 +49,8 @@ export async function borrarImagen(urlPublica: string): Promise<void> {
   } catch {
     // Ya no existe: nada que compensar.
   }
+}
+
+export async function borrarImagenes(urlsPublicas: string[]): Promise<void> {
+  await Promise.all(urlsPublicas.map(borrarImagen));
 }
