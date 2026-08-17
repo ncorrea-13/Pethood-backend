@@ -6,14 +6,21 @@ export interface DatosNuevaPublicacion {
   descripcion: string;
   ubicacion: string;
   requisitos: string[];
-  imagenUrl: string | null;
+  personalidad: string[];
+  desparasitado: boolean;
+  vacunas: string | null;
+  /** En orden: la primera es la portada. */
+  imagenes: string[];
   mascotaId: number;
   usuarioId: number;
 }
 
 export function crear(datos: DatosNuevaPublicacion, usuarioAlta: number) {
+  const { imagenes, ...resto } = datos;
+
   return prisma.publicacion.create({
-    data: { ...datos, ...datosAlta(usuarioAlta) },
+    // imagenUrl se mantiene con la portada, para lo que ya lee ese campo.
+    data: { ...resto, imagenes, imagenUrl: imagenes[0] ?? null, ...datosAlta(usuarioAlta) },
   });
 }
 

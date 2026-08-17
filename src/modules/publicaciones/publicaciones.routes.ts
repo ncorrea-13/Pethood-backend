@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import { autenticar } from '../../middlewares/auth';
-import { validarBody } from '../../middlewares/validate';
+import { comprimirImagen } from '../../middlewares/comprimirImagen';
+import { uploadImagenes } from '../../middlewares/uploadImagen';
 import * as controller from './publicaciones.controller';
-import { crearPublicacionSchema } from './publicaciones.dto';
+import { MAXIMO_IMAGENES } from './publicaciones.dto';
 
 export const publicacionesRouter = Router();
 
-publicacionesRouter.post('/', autenticar, validarBody(crearPublicacionSchema), controller.crear);
+publicacionesRouter.post(
+  '/',
+  autenticar,
+  uploadImagenes('fotos', MAXIMO_IMAGENES),
+  comprimirImagen,
+  controller.crear,
+);

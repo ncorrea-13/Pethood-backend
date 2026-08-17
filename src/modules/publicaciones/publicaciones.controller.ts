@@ -1,11 +1,27 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CrearPublicacionDto } from './publicaciones.dto';
+import { AppError } from '../../middlewares/errorHandler';
+import { crearPublicacionSchema } from './publicaciones.dto';
 import * as service from './publicaciones.service';
 
+/**
+ * El formulario llega como multipart, así que la validación se hace acá: primero tiene
+ * que correr multer para que el body esté parseado.
+ */
 export async function crear(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const datos = req.body as CrearPublicacionDto;
-    res.status(201).json(await service.crearPublicacion(datos, req.usuario!.usuarioId));
+    const resultado = crearPublicacionSchema.safeParse(req.body);
+
+    if (!resultado.success) {
+      const primero = resultado.error.issues[0];
+      throw new AppError('VALIDACION', primero?.message ?? 'Datos inválidos', 400);
+    }
+
+    const publicacion = await service.crearPublicacion(resultado.data, {
+      usuarioId: req.usuario!.usuarioId,
+      archivos: Array.isArray(req.files) ? req.files : [],
+    });
+
+    res.status(201).json(publicacion);
   } catch (err) {
     next(err);
   }
