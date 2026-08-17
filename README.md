@@ -13,6 +13,10 @@ npm run seed                # catálogos base (Especie, Raza, Estado_*, Rol, Tip
 npm run dev                 # http://localhost:3000/api/v1/health
 ```
 
+Auth (spec 001): `POST /api/v1/auth/registro`, `POST /api/v1/auth/login`, `POST /api/v1/auth/google` (ID token mobile) y `GET /api/v1/auth/google` (redirect OAuth web). Para Google, completar `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_REDIRECT_URI` en `.env`. El panel web-admin corre en el puerto **3001** (`FRONTEND_WEB_URL`).
+
+La foto de perfil se controla con `R2_ENABLED` en `.env`. Si está en `false`, el registro se completa igual y se ignora la foto (no se usa R2). Si está en `true`, hay que completar `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` y `R2_PUBLIC_BASE_URL`: la imagen se sube a R2 y en la base solo se guarda la URL pública (`usuario_imagen_url`).
+
 ## ESLint + Prettier
 
 El proyecto usa **ESLint 9** (flat config en `eslint.config.mjs`) y **Prettier** (`.prettierrc.json`). La constitución del proyecto exige que el código pase lint y esté formateado antes de mergear.
