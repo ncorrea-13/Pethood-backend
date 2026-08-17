@@ -34,7 +34,10 @@ export async function comprimirImagen(
   _res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const archivos = [...(req.file ? [req.file] : []), ...(Array.isArray(req.files) ? req.files : [])];
+  const archivos = [
+    ...(req.file ? [req.file] : []),
+    ...(Array.isArray(req.files) ? req.files : []),
+  ];
 
   if (archivos.length === 0) {
     next();
