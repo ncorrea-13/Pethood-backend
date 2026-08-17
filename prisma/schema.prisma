@@ -366,18 +366,26 @@ model MascotaEstado {
 
 // ─────────────── PUBLICACIONES ───────────────
 
-// `ubicacion` y `requisitos` tampoco están en el diagrama de clases. `requisitos` es un
-// text[] plano y no una tabla hija: cada requisito es solo una etiqueta de texto libre,
-// sin atributos ni ciclo de vida propio.
+// Varios campos de acá no están en el diagrama de clases (ver MODELO_DATOS.md). Los text[]
+// se usan para listas de valores simples, sin atributos ni ciclo de vida propio, donde no
+// se justifica una tabla hija.
+//
+// `imagenes` guarda hasta 5 fotos y el orden del array ES el orden de la galería: la
+// primera es la portada. `imagenUrl` se mantiene con esa portada, para no romper lo que ya
+// lee ese campo.
 model Publicacion {
-  id          Int      @id @default(autoincrement()) @map("publicacion_id")
-  titulo      String   @map("publicacion_titulo")
-  descripcion String?  @map("publicacion_descripcion")
-  ubicacion   String?  @map("publicacion_ubicacion")
-  requisitos  String[] @map("publicacion_requisitos")
-  imagenUrl   String?  @map("publicacion_imagen_url")
-  mascotaId   Int      @map("mascota_id")
-  usuarioId   Int      @map("usuario_id")
+  id            Int      @id @default(autoincrement()) @map("publicacion_id")
+  titulo        String   @map("publicacion_titulo")
+  descripcion   String?  @map("publicacion_descripcion")
+  ubicacion     String?  @map("publicacion_ubicacion")
+  requisitos    String[] @map("publicacion_requisitos")
+  personalidad  String[] @map("publicacion_personalidad")
+  desparasitado Boolean  @default(false) @map("publicacion_desparasitado")
+  vacunas       String?  @map("publicacion_vacunas")
+  imagenes      String[] @map("publicacion_imagenes")
+  imagenUrl     String?  @map("publicacion_imagen_url")
+  mascotaId     Int      @map("mascota_id")
+  usuarioId     Int      @map("usuario_id")
 
   usuarioAlta         Int       @map("publicacion_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("publicacion_fecha_alta")

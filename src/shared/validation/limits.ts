@@ -17,6 +17,9 @@ export const LIMITES = {
     descripcion: { max: 50 },
     requisito: { max: 25 },
     ubicacion: { max: 50 },
+    personalidad: { max: 25 },
+    vacunas: { max: 200 },
+    imagenes: { max: 5 },
   },
 
   fecha: { anioMinimo: 1900 },

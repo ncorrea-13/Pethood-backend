@@ -78,6 +78,17 @@ Ver catálogos arriba.
 
 **Campos agregados fuera del diagrama de clases (2026-08-13, HU-6.1):** `publicacion_ubicacion` (texto libre ≤50 caracteres con trim, AC-27) y `publicacion_requisitos` (`text[]`, los "Requisitos del adoptante" del tag input de AC-26, cada etiqueta ≤25 caracteres). Los requisitos se modelan como array plano y no como tabla hija porque cada uno es solo una etiqueta de texto libre sin atributos ni ciclo de vida propio. Pendiente: reflejarlos en el diagrama de clases del grupo.
 
+**Campos agregados por el diseño de GUI-24 (2026-08-17):** tampoco están en el diagrama de clases.
+
+| Campo | Tipo | Para qué |
+|---|---|---|
+| `publicacion_imagenes` | `text[]` | Hasta 5 fotos. **El orden del array es el orden de la galería**: la primera es la portada. `publicacion_imagen_url` se mantiene sincronizado con esa portada para no romper lo que ya lee ese campo. Si no se suben fotos propias, se hereda la de la mascota. |
+| `publicacion_personalidad` | `text[]` | Rasgos elegidos como pastillas (≤25 caracteres cada uno). Hoy las opciones están fijas en el frontend; cuando se definan, deberían pasar a ser un catálogo como Especie o Raza. |
+| `publicacion_desparasitado` | `boolean` | Del interruptor de GUI-24. |
+| `publicacion_vacunas` | `text` | Texto libre ≤200. **Provisional**: el diseño muestra pastillas por vacuna (Rabia, Parvovirus, Moquillo, Triple) y conceptualmente esto pertenece a `Historia_Clinica` (Módulo 8, Fase 6). Se guarda como texto hasta que ese módulo exista. |
+
+**A revisar con el equipo:** los datos de salud (desparasitado, vacunas) viven hoy en `Publicacion` por conveniencia de la pantalla, pero su lugar natural es `Historia_Clinica`. Cuando se implemente la Fase 6, evaluar migrarlos.
+
 **Pendiente de definición:** `publicacion_titulo` es NOT NULL en el schema, pero el formulario de GUI-24 (AC-25 a AC-28) no pide un título — solo descripción, requisitos y ubicación. Confirmar con el equipo si el título se deriva del nombre de la mascota o si falta el campo en la pantalla.
 
 Relaciones: 1 Publicacion → N Solicitud, N Favorito (vía Mascota), 1 Publicacion → N Reseña (visibles en contexto de publicación/solicitud).
