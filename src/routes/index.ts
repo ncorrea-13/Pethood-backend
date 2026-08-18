@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authRouter } from '../modules/auth/auth.routes';
 import { catalogosRouter } from '../modules/catalogos/catalogos.routes';
+import { dashboardAdminRouter } from '../modules/dashboard-admin/dashboard-admin.routes';
 import { mascotasRouter } from '../modules/mascotas/mascotas.routes';
 import { publicacionesRouter } from '../modules/publicaciones/publicaciones.routes';
 
@@ -11,6 +12,7 @@ apiRouter.get('/health', (_req, res) => {
 });
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/admin', dashboardAdminRouter);
 apiRouter.use('/mascotas', mascotasRouter);
 apiRouter.use('/publicaciones', publicacionesRouter);
 apiRouter.use('/', catalogosRouter);
