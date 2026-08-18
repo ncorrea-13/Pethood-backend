@@ -62,6 +62,45 @@ export const crearMascotaSchema = z.discriminatedUnion('actor', [
 
 export type CrearMascotaDto = z.infer<typeof crearMascotaSchema>;
 
+/**
+ * En la edición un campo ausente significa "no lo toques", así que `castrado` no puede
+ * usar `booleanoSchema`: ese colapsa `undefined` a `false` y apagaría la castración sin
+ * que nadie la haya tocado.
+ */
+const booleanoOpcionalSchema = z
+  .union([z.boolean(), z.string()])
+  .optional()
+  .transform((valor) => (valor === undefined ? undefined : valor === true || valor === 'true'));
+
+/**
+ * Edición parcial (HU-6.2): todos los campos son opcionales y solo se escriben los que
+ * llegaron. El estado queda deliberadamente afuera — HU-6.2 habla del perfil y no hay
+ * reglas de transición documentadas, así que cambiarlo es otra HU.
+ */
+export const editarMascotaSchema = z
+  .object({
+    nombre: textoSchema({ ...LIMITES.mascota.nombre, etiqueta: 'El nombre' }).optional(),
+    fechaNacimiento: fechaPasadaSchema('La fecha de nacimiento').optional(),
+    genero: z.enum(GENEROS, { errorMap: () => ({ message: 'El sexo no es válido' }) }).optional(),
+    peso: decimalSchema({ ...LIMITES.mascota.peso, etiqueta: 'El peso' }).optional(),
+    tamanio: z
+      .enum(TAMANIOS, { errorMap: () => ({ message: 'El tamaño no es válido' }) })
+      .optional(),
+    especieId: idSchema('La especie').optional(),
+    razaId: idSchema('La raza').optional(),
+    castrado: booleanoOpcionalSchema,
+    descripcion: textoOpcionalSchema({
+      max: LIMITES.mascota.descripcion.max,
+      etiqueta: 'La descripción',
+    }).optional(),
+  })
+  // La raza solo se valida contra su especie, así que una sin la otra no se puede resolver.
+  .refine((datos) => (datos.razaId === undefined) === (datos.especieId === undefined), {
+    message: 'Para cambiar la raza tenés que indicar también la especie',
+  });
+
+export type EditarMascotaDto = z.infer<typeof editarMascotaSchema>;
+
 export interface MascotaCreadaDto {
   id: number;
   nombre: string | null;

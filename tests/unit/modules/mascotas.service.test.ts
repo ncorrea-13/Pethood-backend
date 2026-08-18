@@ -3,6 +3,7 @@ import { AppError } from '../../../src/middlewares/errorHandler';
 import * as repo from '../../../src/modules/mascotas/mascotas.repository';
 import * as service from '../../../src/modules/mascotas/mascotas.service';
 import { borrarImagen, guardarImagen } from '../../../src/shared/storage';
+import { registrarAuditoria } from '../../../src/shared/logAuditoria';
 import type { CrearMascotaDto } from '../../../src/modules/mascotas/mascotas.dto';
 
 vi.mock('../../../src/modules/mascotas/mascotas.repository');
@@ -62,6 +63,18 @@ beforeEach(() => {
   } as never);
   vi.mocked(guardarImagen).mockResolvedValue('/api/v1/archivos/mascotas/x.jpg');
 });
+
+/** Fila cruda de Mascota tal como la devuelve buscarPorId, sin relaciones. */
+const MASCOTA_GUARDADA = {
+  id: 10,
+  usuarioId: 2,
+  imagenUrl: '/api/v1/archivos/mascotas/vieja.jpg',
+};
+
+/** Solicitud con su estado vigente, en la forma que devuelve el repository. */
+function solicitudEn(nombreEstado: string) {
+  return { id: 1, historicoEstados: [{ estadoSolicitud: { id: 1, nombre: nombreEstado } }] };
+}
 
 describe('crearMascota — foto', () => {
   it('rechaza el alta si no vino una foto', async () => {
@@ -241,5 +254,202 @@ describe('crearMascota — estado elegido por el refugio', () => {
     await expect(
       service.crearMascota(datosRefugio, { usuarioId: 3, archivo: ARCHIVO }),
     ).rejects.toMatchObject({ codigo: 'SIN_REFUGIO' });
+  });
+});
+
+describe('editarMascota — propiedad (HU-6.2)', () => {
+  it('404 si la mascota no existe', async () => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue(null as never);
+
+    await expect(
+      service.editarMascota(10, { nombre: 'Fido II' }, { usuarioId: 2 }),
+    ).rejects.toMatchObject({ codigo: 'NO_ENCONTRADO', httpStatus: 404 });
+  });
+
+  it('403 si la mascota es de otro usuario', async () => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue({ ...MASCOTA_GUARDADA, usuarioId: 99 } as never);
+
+    await expect(
+      service.editarMascota(10, { nombre: 'Fido II' }, { usuarioId: 2 }),
+    ).rejects.toMatchObject({ codigo: 'NO_AUTORIZADO', httpStatus: 403 });
+  });
+
+  it('no escribe nada si el dueño no coincide', async () => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue({ ...MASCOTA_GUARDADA, usuarioId: 99 } as never);
+
+    await service.editarMascota(10, { nombre: 'Fido II' }, { usuarioId: 2 }).catch(() => undefined);
+
+    expect(repo.actualizar).not.toHaveBeenCalled();
+  });
+});
+
+describe('editarMascota — edición parcial', () => {
+  beforeEach(() => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue(MASCOTA_GUARDADA as never);
+    vi.mocked(repo.actualizar).mockResolvedValue(mascotaCreada(ESTADOS.Disponible) as never);
+  });
+
+  it('rechaza un PATCH sin ningún cambio', async () => {
+    await expect(service.editarMascota(10, {}, { usuarioId: 2 })).rejects.toMatchObject({
+      codigo: 'VALIDACION',
+      httpStatus: 400,
+    });
+  });
+
+  it('deja en undefined los campos que no llegaron, para que Prisma no los toque', async () => {
+    await service.editarMascota(10, { nombre: 'Fido II' }, { usuarioId: 2 });
+
+    const escrito = vi.mocked(repo.actualizar).mock.calls[0]![1];
+
+    expect(escrito.nombre).toBe('Fido II');
+    expect(escrito.peso).toBeUndefined();
+    expect(escrito.genero).toBeUndefined();
+    expect(escrito.imagenUrl).toBeUndefined();
+  });
+
+  it('no apaga la castración cuando el campo no vino', async () => {
+    await service.editarMascota(10, { nombre: 'Fido II' }, { usuarioId: 2 });
+
+    expect(vi.mocked(repo.actualizar).mock.calls[0]![1].castrado).toBeUndefined();
+  });
+
+  it('una descripción en null sí limpia la columna', async () => {
+    await service.editarMascota(10, { descripcion: null }, { usuarioId: 2 });
+
+    expect(vi.mocked(repo.actualizar).mock.calls[0]![1].descripcion).toBeNull();
+  });
+
+  it('revalida la raza contra la especie cuando se cambia', async () => {
+    vi.mocked(repo.buscarRaza).mockResolvedValue({ id: 7, especieId: 9 } as never);
+
+    await expect(
+      service.editarMascota(10, { razaId: 7, especieId: 1 }, { usuarioId: 2 }),
+    ).rejects.toMatchObject({ mensaje: 'La raza no corresponde a la especie elegida' });
+  });
+
+  it('registra en auditoría que la mascota se editó', async () => {
+    await service.editarMascota(10, { nombre: 'Fido II', peso: 13 }, { usuarioId: 2 });
+
+    expect(registrarAuditoria).toHaveBeenCalledWith(
+      expect.objectContaining({ accion: 'EDITAR', entidad: 'Mascota', entidadId: 10 }),
+    );
+  });
+});
+
+describe('editarMascota — reemplazo de foto', () => {
+  beforeEach(() => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue(MASCOTA_GUARDADA as never);
+    vi.mocked(repo.actualizar).mockResolvedValue(mascotaCreada(ESTADOS.Disponible) as never);
+    vi.mocked(guardarImagen).mockResolvedValue('/api/v1/archivos/mascotas/nueva.jpg');
+  });
+
+  it('borra la foto nueva si la escritura en base falla', async () => {
+    vi.mocked(repo.actualizar).mockRejectedValue(new Error('base caída'));
+
+    await expect(service.editarMascota(10, {}, { usuarioId: 2, archivo: ARCHIVO })).rejects.toThrow(
+      'base caída',
+    );
+
+    expect(borrarImagen).toHaveBeenCalledWith('/api/v1/archivos/mascotas/nueva.jpg');
+  });
+
+  it('borra la foto vieja si ninguna publicación la usa', async () => {
+    vi.mocked(repo.existePublicacionQueUsaImagen).mockResolvedValue(null as never);
+
+    await service.editarMascota(10, {}, { usuarioId: 2, archivo: ARCHIVO });
+
+    expect(borrarImagen).toHaveBeenCalledWith('/api/v1/archivos/mascotas/vieja.jpg');
+  });
+
+  it('conserva la foto vieja si una publicación la sigue apuntando', async () => {
+    vi.mocked(repo.existePublicacionQueUsaImagen).mockResolvedValue({ id: 3 } as never);
+
+    await service.editarMascota(10, {}, { usuarioId: 2, archivo: ARCHIVO });
+
+    expect(borrarImagen).not.toHaveBeenCalled();
+  });
+
+  it('una foto sola ya es un cambio válido, sin ningún campo de texto', async () => {
+    vi.mocked(repo.existePublicacionQueUsaImagen).mockResolvedValue(null as never);
+
+    const editada = await service.editarMascota(10, {}, { usuarioId: 2, archivo: ARCHIVO });
+
+    expect(editada.id).toBe(10);
+    expect(vi.mocked(repo.actualizar).mock.calls[0]![1].imagenUrl).toBe(
+      '/api/v1/archivos/mascotas/nueva.jpg',
+    );
+  });
+});
+
+describe('eliminarMascota — baja lógica (HU-6.3)', () => {
+  beforeEach(() => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue(MASCOTA_GUARDADA as never);
+    vi.mocked(repo.listarSolicitudesDeMascota).mockResolvedValue([] as never);
+    vi.mocked(repo.darDeBajaConPublicaciones).mockResolvedValue(1 as never);
+  });
+
+  it('404 si la mascota no existe', async () => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue(null as never);
+
+    await expect(service.eliminarMascota(10, 2)).rejects.toMatchObject({
+      codigo: 'NO_ENCONTRADO',
+      httpStatus: 404,
+    });
+  });
+
+  it('403 si la mascota es de otro usuario', async () => {
+    vi.mocked(repo.buscarPorId).mockResolvedValue({ ...MASCOTA_GUARDADA, usuarioId: 99 } as never);
+
+    await expect(service.eliminarMascota(10, 2)).rejects.toMatchObject({
+      codigo: 'NO_AUTORIZADO',
+      httpStatus: 403,
+    });
+  });
+
+  it('da de baja la mascota y arrastra sus publicaciones activas', async () => {
+    const resultado = await service.eliminarMascota(10, 2);
+
+    expect(repo.darDeBajaConPublicaciones).toHaveBeenCalledWith(10, 2);
+    expect(resultado).toEqual({ id: 10, publicacionesDadasDeBaja: 1 });
+  });
+
+  it('409 si hay una solicitud pendiente de otro usuario', async () => {
+    vi.mocked(repo.listarSolicitudesDeMascota).mockResolvedValue([
+      solicitudEn('Pendiente'),
+    ] as never);
+
+    await expect(service.eliminarMascota(10, 2)).rejects.toMatchObject({
+      codigo: 'SOLICITUDES_ABIERTAS',
+      httpStatus: 409,
+    });
+  });
+
+  it('409 también si la solicitud está en revisión', async () => {
+    vi.mocked(repo.listarSolicitudesDeMascota).mockResolvedValue([
+      solicitudEn('En_Revision'),
+    ] as never);
+
+    await expect(service.eliminarMascota(10, 2)).rejects.toMatchObject({
+      codigo: 'SOLICITUDES_ABIERTAS',
+    });
+  });
+
+  it('no da de baja nada si las solicitudes bloquean', async () => {
+    vi.mocked(repo.listarSolicitudesDeMascota).mockResolvedValue([
+      solicitudEn('Pendiente'),
+    ] as never);
+
+    await service.eliminarMascota(10, 2).catch(() => undefined);
+
+    expect(repo.darDeBajaConPublicaciones).not.toHaveBeenCalled();
+  });
+
+  it('las solicitudes ya resueltas no frenan la baja', async () => {
+    vi.mocked(repo.listarSolicitudesDeMascota).mockResolvedValue([
+      solicitudEn('Rechazada'),
+      solicitudEn('Aprobada'),
+    ] as never);
+
+    await expect(service.eliminarMascota(10, 2)).resolves.toMatchObject({ id: 10 });
   });
 });
