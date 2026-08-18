@@ -11,6 +11,7 @@ vi.mock('../../../../src/modules/auth/auth.repository', () => ({
   buscarRolPorNombre: vi.fn(),
   crearUsuarioConRol: vi.fn(),
   vincularGoogleId: vi.fn(),
+  actualizarContrasena: vi.fn(),
 }));
 
 vi.mock('../../../../src/shared/logAuditoria', () => ({
@@ -23,7 +24,14 @@ vi.mock('../../../../src/shared/r2', () => ({
 }));
 
 import * as authRepo from '../../../../src/modules/auth/auth.repository';
-import { login, loginConGoogle, registrar } from '../../../../src/modules/auth/auth.service';
+import {
+  login,
+  loginConGoogle,
+  registrar,
+  resetearPassword,
+  solicitarRecuperacion,
+} from '../../../../src/modules/auth/auth.service';
+import { limpiarCodigosReset } from '../../../../src/modules/auth/auth.resetStore';
 import * as r2 from '../../../../src/shared/r2';
 
 const mockedRepo = vi.mocked(authRepo);
@@ -41,6 +49,7 @@ function usuarioFake(overrides: Partial<UsuarioConRoles> = {}): UsuarioConRoles 
     googleId: null,
     verificado: false,
     imagenUrl: null,
+    ubicacion: null,
     refugioId: null,
     estadoId: 2,
     usuarioAlta: 1,
@@ -91,6 +100,7 @@ function usuarioFake(overrides: Partial<UsuarioConRoles> = {}): UsuarioConRoles 
 describe('auth.service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    limpiarCodigosReset();
     vi.mocked(r2.r2Habilitado).mockReturnValue(false);
     mockedRepo.buscarEstadoPorNombre.mockResolvedValue({
       id: 2,
@@ -280,5 +290,40 @@ describe('auth.service', () => {
 
     expect(resultado.usuario.id).toBe(10);
     expect(mockedRepo.vincularGoogleId).toHaveBeenCalledWith(10, 'sub-google', undefined);
+  });
+
+  it('recuperar no revela si el email existe', async () => {
+    mockedRepo.buscarPorEmail.mockResolvedValue(null);
+
+    const resultado = await solicitarRecuperacion({ email: 'nadie@mail.com' });
+
+    expect(resultado.mensaje).toContain('Si el correo está registrado');
+    expect(resultado.codigo).toBeUndefined();
+  });
+
+  it('recuperar genera un código cuando el usuario existe', async () => {
+    mockedRepo.buscarPorEmail.mockResolvedValue(usuarioFake());
+
+    const resultado = await solicitarRecuperacion({ email: 'ana@mail.com' });
+
+    expect(resultado.codigo).toMatch(/^\d{6}$/);
+  });
+
+  it('resetear cambia la contraseña con un código válido', async () => {
+    const usuario = usuarioFake();
+    mockedRepo.buscarPorEmail.mockResolvedValue(usuario);
+    mockedRepo.buscarPorId.mockResolvedValue(usuario);
+    mockedRepo.actualizarContrasena.mockResolvedValue(undefined);
+
+    const { codigo } = await solicitarRecuperacion({ email: 'ana@mail.com' });
+    await resetearPassword({ email: 'ana@mail.com', codigo: codigo!, password: 'nuevaClave1' });
+
+    expect(mockedRepo.actualizarContrasena).toHaveBeenCalledWith(10, expect.any(String));
+  });
+
+  it('resetear rechaza un código inválido', async () => {
+    await expect(
+      resetearPassword({ email: 'ana@mail.com', codigo: '000000', password: 'nuevaClave1' }),
+    ).rejects.toMatchObject({ codigo: 'CODIGO_INVALIDO', httpStatus: 400 });
   });
 });

@@ -2,7 +2,13 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from '../../config/env';
 import { AppError } from '../../middlewares/errorHandler';
 import * as authGoogle from './auth.google';
-import type { GoogleIdTokenBody, LoginBody, RegistroBody } from './auth.dto';
+import type {
+  GoogleIdTokenBody,
+  LoginBody,
+  RecuperarBody,
+  RegistroBody,
+  ResetearBody,
+} from './auth.dto';
 import * as authService from './auth.service';
 
 function redirectLogin(res: Response, error: string): void {
@@ -31,6 +37,24 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 
 export async function logout(_req: Request, res: Response): Promise<void> {
   res.status(204).send();
+}
+
+export async function recuperar(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const resultado = await authService.solicitarRecuperacion(req.body as RecuperarBody);
+    res.json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetear(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await authService.resetearPassword(req.body as ResetearBody);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
 }
 
 export async function loginGoogleIdToken(

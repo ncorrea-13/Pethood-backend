@@ -26,11 +26,11 @@ Usuario, Rol, Usuario_Rol, Bio_Usuario, Refugio, Refugio_Miembro (ver MODELO_DAT
 | POST | /api/v1/auth/google | público | Login/registro con ID token de Google (mobile) |
 | GET | /api/v1/auth/google | público | Redirige al consentimiento OAuth 2.0 de Google (web) |
 | GET | /api/v1/auth/google/callback | público | Intercambia el code de Google y redirige al frontend con JWT |
-| POST | /api/v1/auth/recuperar | público | Envía email con token de reseteo |
-| POST | /api/v1/auth/resetear | token | Cambia la contraseña con token válido |
-| GET | /api/v1/usuarios/me | JWT | Perfil propio (incluye bio y roles) |
-| PATCH | /api/v1/usuarios/me | JWT | Edita datos, bio, foto de perfil |
-| PATCH | /api/v1/usuarios/me/password | JWT | Cambia contraseña (requiere la actual) |
+| POST | /api/v1/auth/recuperar | público | Envía (o, en dev, devuelve) un código de 6 dígitos para resetear. No revela si el email existe. |
+| POST | /api/v1/auth/resetear | público | Cambia la contraseña con email + código válido |
+| GET | /api/v1/usuarios/me | JWT | Perfil propio (datos, foto, barrio/ciudad, conteos de mascotas/favoritos y valoración) |
+| PATCH | /api/v1/usuarios/me | JWT | Edita nombre, apellido, email, teléfono, ubicación y foto (`multipart` campo `imagen`) |
+| PATCH | /api/v1/usuarios/me/password | JWT | Cambia contraseña (exige la actual si la cuenta ya tiene una) |
 
 Ejemplo registro:
 
@@ -86,4 +86,4 @@ Token expirado (401 + redirección a login) · doble submit de registro (idempot
 
 - 2026-07-06: spec inicial generada a partir de historias de usuario (Integrante 1). Pendiente revisión del equipo.
 - 2026-08-17: se agrega OAuth 2.0 con Google. El registro mobile envía `nombre`, `apellido`, `email`, `password`, `fechaNacimiento` y `telefono` (DNI opcional). `usuario_dni` y `usuario_contraseña` pasan a ser nullable para cuentas Google. El JWT incluye `usuarioId`, `id` (alias), `email` y `roles` en códigos de API (`ADOPTANTE` / `MIEMBRO_REFUGIO` / `ADMIN`).
-- 2026-08-17: el registro acepta foto de perfil opcional (`multipart/form-data`, campo `imagen`). Si `R2_ENABLED=true`, el archivo se comprime, se sube a Cloudflare R2 y en `usuario_imagen_url` se persiste **solo la URL pública**. Si `R2_ENABLED=false`, el registro se completa igual y se ignora la foto. `fechaNacimiento` es `DD/MM/AAAA` y debe ser anterior a hoy. La confirmación de contraseña se valida en el cliente y no viaja al backend.
+- 2026-08-18: HU-1.3 a HU-1.6. `GET/PATCH /usuarios/me` cubren visualizar/editar/completar perfil (foto + barrio/ciudad). La foto se persiste en R2 si está habilitado, o en disco local. `POST /auth/recuperar` genera un código de 6 dígitos (en development/test viaja en la respuesta porque no hay SMTP). `POST /auth/resetear` lo consume. `PATCH /usuarios/me/password` actualiza la contraseña estando autenticado.

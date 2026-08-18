@@ -228,6 +228,8 @@ model Usuario {
   googleId         String?   @unique @map("usuario_google_id")
   verificado       Boolean   @default(false) @map("usuario_verificado")
   imagenUrl        String?   @map("usuario_imagen_url")
+  // Barrio / ciudad del perfil (GUI-15). Nullable para cuentas nuevas o de Google.
+  ubicacion        String?   @map("usuario_ubicacion")
   refugioId        Int?      @map("refugio_id")
   estadoId         Int       @map("estado_id")
 
