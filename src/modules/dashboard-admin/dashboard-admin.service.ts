@@ -250,7 +250,7 @@ async function* filasCampanias() {
       yield [
         c.id,
         c.titulo,
-        c.objetivo.toString(),
+        c.objetivo?.toString() ?? '',
         c.estadoCampania.nombre,
         c.refugioId,
         c.fechaInicio,
