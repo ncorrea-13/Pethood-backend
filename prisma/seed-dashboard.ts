@@ -7,6 +7,7 @@
 //
 // Idempotente igual que seed.ts (findFirst + create) aunque Mascota/Solicitud/Campania no
 // tengan clave única natural para un upsert real.
+import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -34,6 +35,7 @@ async function main() {
 
   const usuarioAlta = sistema.id;
 
+  await seedAdmin(usuarioAlta);
   const mascotas = await seedMascotas(usuarioAlta, refugio.id, usuarioRefugio.id, raza.id);
   // Incluye "Adoptado": tuvo publicación antes de que se aprobara la solicitud que la sacó
   // de circulación — necesaria para que las 5 solicitudes cubran los 5 EstadoSolicitud.
@@ -45,7 +47,38 @@ async function main() {
   await seedCampaniasYDonaciones(usuarioAlta, refugio.id, adoptante.id);
   await seedReportesProblema(usuarioAlta);
 
+  console.log('🔑 Cuenta admin de prueba: admin@pethood.test — Pethood123');
   console.log('✅ seed-dashboard completo.');
+}
+
+/** Cuenta admin de prueba para loguearse en el dashboard (cookie.sh, panel web-admin). */
+async function seedAdmin(usuarioAlta: number) {
+  const estadoActivo = await prisma.estadoUsuario.findUniqueOrThrow({ where: { nombre: 'Activo' } });
+  const rolAdministrador = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Administrador' } });
+
+  const admin = await prisma.usuario.upsert({
+    where: { email: 'admin@pethood.test' },
+    update: {},
+    create: {
+      nombre: 'Admin',
+      apellido: 'PetHood',
+      email: 'admin@pethood.test',
+      contrasena: await bcrypt.hash('Pethood123', 10),
+      dni: '20999888',
+      verificado: true,
+      estadoId: estadoActivo.id,
+      usuarioAlta,
+    },
+  });
+
+  const yaTieneRol = await prisma.rolUsuario.findFirst({
+    where: { usuarioId: admin.id, rolId: rolAdministrador.id, fechaBaja: null },
+  });
+  if (!yaTieneRol) {
+    await prisma.rolUsuario.create({
+      data: { usuarioId: admin.id, rolId: rolAdministrador.id, usuarioAlta },
+    });
+  }
 }
 
 async function seedMascotas(
