@@ -92,3 +92,68 @@ export function listarFechasSolicitudesAprobadas() {
     select: { fechaAlta: true },
   });
 }
+
+// ─────────────── EXPORT CSV (HU-14.3) ───────────────
+//
+// Paginado por cursor (id > último visto), no por OFFSET: con OFFSET cada página repite el
+// escaneo de las filas anteriores, cursor es O(1) por página sin importar cuán lejos se esté.
+
+export function paginaUsuariosParaExport(cursorId: number | undefined, take: number) {
+  return prisma.usuario.findMany({
+    where: { fechaBaja: null, ...(cursorId ? { id: { gt: cursorId } } : {}) },
+    orderBy: { id: 'asc' },
+    take,
+    include: { estado: true },
+  });
+}
+
+export function paginaMascotasParaExport(cursorId: number | undefined, take: number) {
+  return prisma.mascota.findMany({
+    where: { fechaBaja: null, ...(cursorId ? { id: { gt: cursorId } } : {}) },
+    orderBy: { id: 'asc' },
+    take,
+    include: {
+      raza: { include: { especie: true } },
+      historicoEstados: {
+        where: { fechaBaja: null },
+        include: { estadoMascota: true },
+        orderBy: { fechaAlta: 'desc' },
+        take: 1,
+      },
+    },
+  });
+}
+
+export function paginaPublicacionesParaExport(cursorId: number | undefined, take: number) {
+  return prisma.publicacion.findMany({
+    where: { fechaBaja: null, ...(cursorId ? { id: { gt: cursorId } } : {}) },
+    orderBy: { id: 'asc' },
+    take,
+  });
+}
+
+export function paginaSolicitudesParaExport(cursorId: number | undefined, take: number) {
+  return prisma.solicitud.findMany({
+    where: { fechaBaja: null, ...(cursorId ? { id: { gt: cursorId } } : {}) },
+    orderBy: { id: 'asc' },
+    take,
+    include: {
+      tipoSolicitud: true,
+      historicoEstados: {
+        where: { fechaBaja: null },
+        include: { estadoSolicitud: true },
+        orderBy: { fechaAlta: 'desc' },
+        take: 1,
+      },
+    },
+  });
+}
+
+export function paginaCampaniasParaExport(cursorId: number | undefined, take: number) {
+  return prisma.campania.findMany({
+    where: { fechaBaja: null, ...(cursorId ? { id: { gt: cursorId } } : {}) },
+    orderBy: { id: 'asc' },
+    take,
+    include: { estadoCampania: true },
+  });
+}
