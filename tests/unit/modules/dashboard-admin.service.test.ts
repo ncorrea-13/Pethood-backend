@@ -248,4 +248,97 @@ describe('exportarEntidad — paginado por cursor', () => {
 
     expect(todas).toEqual([[1, 'Firulais', 'Perro', 'Mestizo', '', 1, 2, fechaAlta]]);
   });
+
+  it('publicaciones exportan sus columnas en orden', async () => {
+    const fechaAlta = new Date('2026-01-01');
+    vi.mocked(repo.paginaPublicacionesParaExport)
+      .mockResolvedValueOnce([
+        { id: 1, titulo: 'Se busca hogar', mascotaId: 1, usuarioId: 2, ubicacion: 'Mendoza', fechaAlta },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const { filas } = service.exportarEntidad('publicaciones');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toEqual([[1, 'Se busca hogar', 1, 2, 'Mendoza', fechaAlta]]);
+  });
+
+  it('solicitudes sin historial de estado no rompen el export, van con estado vacío', async () => {
+    const fechaAlta = new Date('2026-01-01');
+    vi.mocked(repo.paginaSolicitudesParaExport)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          tipoSolicitud: { nombre: 'Adopcion' },
+          publicacionId: 1,
+          usuarioId: 2,
+          fechaAlta,
+          historicoEstados: [],
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const { filas } = service.exportarEntidad('solicitudes');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toEqual([[1, 'Adopcion', 1, 2, '', fechaAlta]]);
+  });
+
+  it('campanias con objetivo nulo no rompen el export, van con objetivo vacío', async () => {
+    const fechaInicio = new Date('2026-01-01');
+    const fechaFin = new Date('2026-06-01');
+    vi.mocked(repo.paginaCampaniasParaExport)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          titulo: 'Campaña sin objetivo',
+          objetivo: null,
+          estadoCampania: { nombre: 'Activa' },
+          refugioId: 1,
+          fechaInicio,
+          fechaFin,
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const { filas } = service.exportarEntidad('campanias');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toEqual([[1, 'Campaña sin objetivo', '', 'Activa', 1, fechaInicio, fechaFin]]);
+  });
+
+  it('campanias con objetivo numérico lo serializa como string', async () => {
+    const fechaInicio = new Date('2026-01-01');
+    const fechaFin = new Date('2026-06-01');
+    vi.mocked(repo.paginaCampaniasParaExport)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          titulo: 'Campaña con objetivo',
+          objetivo: { toString: () => '50000' },
+          estadoCampania: { nombre: 'Activa' },
+          refugioId: 1,
+          fechaInicio,
+          fechaFin,
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const { filas } = service.exportarEntidad('campanias');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toEqual([[1, 'Campaña con objetivo', '50000', 'Activa', 1, fechaInicio, fechaFin]]);
+  });
 });
