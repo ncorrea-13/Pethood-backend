@@ -128,3 +128,14 @@ export async function vincularGoogleId(
     include: includeUsuario,
   });
 }
+
+export async function actualizarContrasena(usuarioId: number, hash: string): Promise<void> {
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: {
+      contrasena: hash,
+      usuarioModificacion: usuarioId,
+      fechaModificacion: new Date(),
+    },
+  });
+}

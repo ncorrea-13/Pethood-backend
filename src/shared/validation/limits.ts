@@ -22,6 +22,12 @@ export const LIMITES = {
     imagenes: { max: 5 },
   },
 
+  usuario: {
+    nombre: { min: 1, max: 50 },
+    apellido: { min: 1, max: 50 },
+    ubicacion: { max: 80 },
+  },
+
   fecha: { anioMinimo: 1900 },
 
   imagen: {

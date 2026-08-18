@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { env } from '../../config/env';
 import { AppError } from '../../middlewares/errorHandler';
 import { parsearFechaNacimiento } from '../../shared/fechas';
 import { firmarToken } from '../../shared/jwt';
@@ -6,10 +7,18 @@ import { registrarAuditoria } from '../../shared/logAuditoria';
 import { estaBloqueado, limpiarIntentos, registrarFallo } from '../../shared/rateLimit';
 import { ESTADO_USUARIO, ROL_API, rolApiADb, rolesDbAApi } from '../../shared/roles';
 import { r2Habilitado, subirImagenPerfil, type ArchivoSubida } from '../../shared/r2';
-import type { LoginBody, RegistroBody, RespuestaAuth } from './auth.dto';
+import type {
+  LoginBody,
+  RecuperarBody,
+  RegistroBody,
+  ResetearBody,
+  RespuestaAuth,
+  RespuestaRecuperar,
+} from './auth.dto';
 import type { PerfilGoogle } from './auth.google';
 import type { UsuarioConRoles } from './auth.repository';
 import * as authRepo from './auth.repository';
+import { consumirCodigoReset, generarCodigoReset, guardarCodigoReset } from './auth.resetStore';
 
 const BCRYPT_COST = 10;
 const EMAIL_SISTEMA = 'sistema@pethood.internal';
@@ -30,6 +39,8 @@ function aRespuesta(usuario: UsuarioConRoles): RespuestaAuth {
       email: usuario.email,
       roles: rolesApi,
       imagenUrl: usuario.imagenUrl,
+      telefono: usuario.telefono,
+      ubicacion: usuario.ubicacion,
     },
     token: firmarToken({ usuarioId: usuario.id, email: usuario.email, roles: rolesApi }),
   };
@@ -214,4 +225,68 @@ export async function perfilPropio(usuarioId: number): Promise<RespuestaAuth['us
     throw new AppError('NO_AUTENTICADO', 'No encontramos tu sesión.', 401);
   }
   return aRespuesta(usuario).usuario;
+}
+
+const MENSAJE_RECUPERAR =
+  'Si el correo está registrado, te enviamos un código para restablecer tu contraseña.';
+
+function puedeRecuperar(usuario: UsuarioConRoles): boolean {
+  if (usuario.email === EMAIL_SISTEMA) return false;
+  const estado = usuario.estado.nombre;
+  return estado !== ESTADO_USUARIO.SUSPENDIDO && estado !== ESTADO_USUARIO.INACTIVO;
+}
+
+export async function solicitarRecuperacion(body: RecuperarBody): Promise<RespuestaRecuperar> {
+  const usuario = await authRepo.buscarPorEmail(body.email);
+
+  if (!usuario || !puedeRecuperar(usuario)) {
+    return { mensaje: MENSAJE_RECUPERAR };
+  }
+
+  const codigo = generarCodigoReset();
+  guardarCodigoReset(usuario.email, usuario.id, codigo);
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    accion: 'SOLICITAR_RECUPERACION',
+    entidad: 'Usuario',
+    entidadId: usuario.id,
+  });
+
+  if (env.NODE_ENV !== 'production') {
+    console.info(`[auth] Código de recuperación para ${usuario.email}: ${codigo}`);
+    return { mensaje: MENSAJE_RECUPERAR, codigo };
+  }
+
+  return { mensaje: MENSAJE_RECUPERAR };
+}
+
+export async function resetearPassword(body: ResetearBody): Promise<void> {
+  const usuarioId = consumirCodigoReset(body.email, body.codigo);
+  if (!usuarioId) {
+    throw new AppError(
+      'CODIGO_INVALIDO',
+      'El código es inválido o expiró. Pedí uno nuevo e intentalo de nuevo.',
+      400,
+    );
+  }
+
+  const usuario = await authRepo.buscarPorId(usuarioId);
+  if (!usuario || usuario.email !== body.email) {
+    throw new AppError(
+      'CODIGO_INVALIDO',
+      'El código es inválido o expiró. Pedí uno nuevo e intentalo de nuevo.',
+      400,
+    );
+  }
+
+  const hash = await bcrypt.hash(body.password, BCRYPT_COST);
+  await authRepo.actualizarContrasena(usuario.id, hash);
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    accion: 'RESETEAR_CONTRASENA',
+    entidad: 'Usuario',
+    entidadId: usuario.id,
+  });
 }
