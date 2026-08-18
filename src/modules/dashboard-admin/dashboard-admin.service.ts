@@ -1,3 +1,4 @@
+import type { EntidadExportable } from './dashboard-admin.dto';
 import * as repo from './dashboard-admin.repository';
 
 const MESES_ES = [
@@ -154,4 +155,139 @@ export async function obtenerDashboard(): Promise<DashboardAdminDto> {
     solicitudesPorEstado: solicitudesPorEstadoConPorcentaje,
     publicacionesPorMes: aSerieMensual(fechasPublicaciones, fechasAdopciones),
   };
+}
+
+// ─────────────── EXPORT CSV (HU-14.3) ───────────────
+
+// ponytail: 500 filas por página. Sin backpressure explícito sobre res.write() — para el
+// volumen esperado de este proyecto alcanza; si algún día hay decenas de miles de filas por
+// export, pasar a pipeline() con un Readable real que respete res.write() === false.
+const FILAS_POR_PAGINA = 500;
+
+async function* filasUsuarios() {
+  let cursorId: number | undefined;
+  for (;;) {
+    const pagina = await repo.paginaUsuariosParaExport(cursorId, FILAS_POR_PAGINA);
+    if (pagina.length === 0) return;
+    for (const u of pagina) {
+      yield [
+        u.id,
+        u.nombre,
+        u.apellido,
+        u.email,
+        u.dni,
+        u.verificado,
+        u.estado.nombre,
+        u.fechaAlta,
+      ];
+    }
+    cursorId = pagina[pagina.length - 1]!.id;
+    if (pagina.length < FILAS_POR_PAGINA) return;
+  }
+}
+
+async function* filasMascotas() {
+  let cursorId: number | undefined;
+  for (;;) {
+    const pagina = await repo.paginaMascotasParaExport(cursorId, FILAS_POR_PAGINA);
+    if (pagina.length === 0) return;
+    for (const m of pagina) {
+      yield [
+        m.id,
+        m.nombre,
+        m.raza.especie.nombre,
+        m.raza.nombre,
+        m.historicoEstados[0]?.estadoMascota.nombre ?? '',
+        m.refugioId,
+        m.usuarioId,
+        m.fechaAlta,
+      ];
+    }
+    cursorId = pagina[pagina.length - 1]!.id;
+    if (pagina.length < FILAS_POR_PAGINA) return;
+  }
+}
+
+async function* filasPublicaciones() {
+  let cursorId: number | undefined;
+  for (;;) {
+    const pagina = await repo.paginaPublicacionesParaExport(cursorId, FILAS_POR_PAGINA);
+    if (pagina.length === 0) return;
+    for (const p of pagina) {
+      yield [p.id, p.titulo, p.mascotaId, p.usuarioId, p.ubicacion, p.fechaAlta];
+    }
+    cursorId = pagina[pagina.length - 1]!.id;
+    if (pagina.length < FILAS_POR_PAGINA) return;
+  }
+}
+
+async function* filasSolicitudes() {
+  let cursorId: number | undefined;
+  for (;;) {
+    const pagina = await repo.paginaSolicitudesParaExport(cursorId, FILAS_POR_PAGINA);
+    if (pagina.length === 0) return;
+    for (const s of pagina) {
+      yield [
+        s.id,
+        s.tipoSolicitud.nombre,
+        s.publicacionId,
+        s.usuarioId,
+        s.historicoEstados[0]?.estadoSolicitud.nombre ?? '',
+        s.fechaAlta,
+      ];
+    }
+    cursorId = pagina[pagina.length - 1]!.id;
+    if (pagina.length < FILAS_POR_PAGINA) return;
+  }
+}
+
+async function* filasCampanias() {
+  let cursorId: number | undefined;
+  for (;;) {
+    const pagina = await repo.paginaCampaniasParaExport(cursorId, FILAS_POR_PAGINA);
+    if (pagina.length === 0) return;
+    for (const c of pagina) {
+      yield [
+        c.id,
+        c.titulo,
+        c.objetivo.toString(),
+        c.estadoCampania.nombre,
+        c.refugioId,
+        c.fechaInicio,
+        c.fechaFin,
+      ];
+    }
+    cursorId = pagina[pagina.length - 1]!.id;
+    if (pagina.length < FILAS_POR_PAGINA) return;
+  }
+}
+
+const EXPORTS: Record<
+  EntidadExportable,
+  { headers: string[]; filas: () => AsyncGenerator<unknown[]> }
+> = {
+  usuarios: {
+    headers: ['id', 'nombre', 'apellido', 'email', 'dni', 'verificado', 'estado', 'fechaAlta'],
+    filas: filasUsuarios,
+  },
+  mascotas: {
+    headers: ['id', 'nombre', 'especie', 'raza', 'estado', 'refugioId', 'usuarioId', 'fechaAlta'],
+    filas: filasMascotas,
+  },
+  publicaciones: {
+    headers: ['id', 'titulo', 'mascotaId', 'usuarioId', 'ubicacion', 'fechaAlta'],
+    filas: filasPublicaciones,
+  },
+  solicitudes: {
+    headers: ['id', 'tipo', 'publicacionId', 'usuarioId', 'estado', 'fechaAlta'],
+    filas: filasSolicitudes,
+  },
+  campanias: {
+    headers: ['id', 'titulo', 'objetivo', 'estado', 'refugioId', 'fechaInicio', 'fechaFin'],
+    filas: filasCampanias,
+  },
+};
+
+export function exportarEntidad(entidad: EntidadExportable) {
+  return EXPORTS[entidad];
 }
