@@ -21,11 +21,19 @@ datasource db {
 }
 
 // ─────────────── ENUMS ───────────────
-// Único enum real: selector cerrado de 2 valores explícito en HU-6.1, no modelado como catálogo.
+// Selectores de valores fijos, no modelados como catálogo porque no son configurables
+// desde el panel admin. Sin tildes ni ñ en los identificadores (CONSTITUTION.md §5) —
+// la UI muestra las etiquetas en español correcto.
 
 enum GeneroMascota {
   MACHO
   HEMBRA
+}
+
+enum TamanioMascota {
+  PEQUENO
+  MEDIANO
+  GRANDE
 }
 
 // ─────────────── CATÁLOGOS ───────────────
@@ -298,17 +306,25 @@ model Refugio {
 
 // ─────────────── MASCOTAS ───────────────
 
+// `peso` y `tamanio` no vienen del diagrama de clases original — se agregaron porque el
+// formulario de alta los pide. Ver MODELO_DATOS.md.
+//
+// Nullables en base igual que `nombre` y `fechaNacimiento`: la obligatoriedad se impone en
+// mascotas.dto.ts, no en la columna, para no bloquear altas desde otros flujos (ej. un
+// animal encontrado del que no se conocen todos los datos).
 model Mascota {
-  id              Int           @id @default(autoincrement()) @map("mascota_id")
-  nombre          String?       @map("mascota_nombre")
-  fechaNacimiento DateTime?     @map("mascota_fecha_nacimiento")
-  genero          GeneroMascota @map("mascota_genero")
-  castrado        Boolean       @default(false) @map("mascota_castrado")
-  descripcion     String?       @map("mascota_descripcion")
-  imagenUrl       String?       @map("mascota_imagen_url")
-  razaId          Int           @map("raza_id")
-  refugioId       Int?          @map("refugio_id")
-  usuarioId       Int           @map("usuario_id")
+  id              Int             @id @default(autoincrement()) @map("mascota_id")
+  nombre          String?         @map("mascota_nombre")
+  fechaNacimiento DateTime?       @map("mascota_fecha_nacimiento")
+  genero          GeneroMascota   @map("mascota_genero")
+  peso            Decimal?        @map("mascota_peso") @db.Decimal(4, 1)
+  tamanio         TamanioMascota? @map("mascota_tamanio")
+  castrado        Boolean         @default(false) @map("mascota_castrado")
+  descripcion     String?         @map("mascota_descripcion")
+  imagenUrl       String?         @map("mascota_imagen_url")
+  razaId          Int             @map("raza_id")
+  refugioId       Int?            @map("refugio_id")
+  usuarioId       Int             @map("usuario_id")
 
   usuarioAlta         Int       @map("mascota_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("mascota_fecha_alta")
@@ -350,13 +366,26 @@ model MascotaEstado {
 
 // ─────────────── PUBLICACIONES ───────────────
 
+// Varios campos de acá no están en el diagrama de clases (ver MODELO_DATOS.md). Los text[]
+// se usan para listas de valores simples, sin atributos ni ciclo de vida propio, donde no
+// se justifica una tabla hija.
+//
+// `imagenes` guarda hasta 5 fotos y el orden del array ES el orden de la galería: la
+// primera es la portada. `imagenUrl` se mantiene con esa portada, para no romper lo que ya
+// lee ese campo.
 model Publicacion {
-  id          Int     @id @default(autoincrement()) @map("publicacion_id")
-  titulo      String  @map("publicacion_titulo")
-  descripcion String? @map("publicacion_descripcion")
-  imagenUrl   String? @map("publicacion_imagen_url")
-  mascotaId   Int     @map("mascota_id")
-  usuarioId   Int     @map("usuario_id")
+  id            Int      @id @default(autoincrement()) @map("publicacion_id")
+  titulo        String   @map("publicacion_titulo")
+  descripcion   String?  @map("publicacion_descripcion")
+  ubicacion     String?  @map("publicacion_ubicacion")
+  requisitos    String[] @map("publicacion_requisitos")
+  personalidad  String[] @map("publicacion_personalidad")
+  desparasitado Boolean  @default(false) @map("publicacion_desparasitado")
+  vacunas       String?  @map("publicacion_vacunas")
+  imagenes      String[] @map("publicacion_imagenes")
+  imagenUrl     String?  @map("publicacion_imagen_url")
+  mascotaId     Int      @map("mascota_id")
+  usuarioId     Int      @map("usuario_id")
 
   usuarioAlta         Int       @map("publicacion_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("publicacion_fecha_alta")
