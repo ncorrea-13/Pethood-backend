@@ -23,3 +23,4 @@ Cada módulo tiene una spec numerada que se escribe y aprueba ANTES de codificar
 | 006 | Hogares de Tránsito y Reputación | 6 | pendiente |
 | 007 | Campañas, Padrinazgos y Perdidos | 7 | pendiente |
 | 008 | Panel Admin y Moderación | 8 | pendiente |
+| 009 | Dashboards y Reportes (Admin) | 12 | APROBADA |
