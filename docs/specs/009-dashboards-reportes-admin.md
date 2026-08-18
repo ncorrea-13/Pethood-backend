@@ -14,7 +14,11 @@ Darle al administrador global una vista agregada del estado de la plataforma (us
 
 ## 3. Entidades involucradas
 
-Ninguna nueva — son vistas agregadas de solo lectura sobre `Usuario`, `Refugio`, `Mascota`, `Publicacion`, `Solicitud`, `Campania`, `Donacion` y sus catálogos `Estado*` (ver MODELO_DATOS.md). No se agregan columnas ni tablas.
+Ninguna nueva — son vistas agregadas de solo lectura sobre `Usuario`, `Refugio`, `Mascota`, `Publicacion`, `Solicitud`, `Campania`, `Donacion`, `ReporteProblema` y sus catálogos `Estado*` (ver MODELO_DATOS.md). No se agregan columnas ni tablas.
+
+**`ReporteProblema` — solo lectura, sin módulo propio:** se consulta `resuelto: false` para el KPI `reportesPendientes`. No hay noción de "crítico"/prioridad en el modelo (solo `motivo`, `respuesta`, `resuelto`), y la entidad ni siquiera tiene FK a `Usuario` dibujada (ambigüedad #2, REQUISITOS.md §10). Esto NO abre el módulo de moderación (spec 008) — es una única consulta de agregación, igual que el resto de este endpoint.
+
+**Fuera de esta spec — `distribucionGeografica`:** se evaluó agregar publicaciones/adopciones por departamento, pero `Publicacion.ubicacion` es texto libre (`prisma/schema.prisma:380`, sin FK a Provincia/Localidad) — agrupar por ese campo cuenta variantes/typos como filas distintas. Decisión 2026-08-18: no implementar hasta que exista un catálogo geográfico real en el modelo (ningún módulo lo tiene todavía).
 
 **Gap detectado:** `Donacion` no tiene ningún campo de confirmación en el schema actual (`prisma/schema.prisma:698-715`) — solo `monto`, `campaniaId`, `usuarioId` + auditoría. La regla transversal #11 ("el monto declarado nunca impacta la barra de progreso, solo cuando el refugio confirma manualmente") depende de un estado que hoy no existe en el modelo. Es un problema de Módulo 12 (Campañas), no de este módulo — lo señalo para no asumir una interpretación silenciosa. Mientras no se resuelva, el dashboard reporta el total de `Donacion.monto` como "donado declarado", sin poder aislar "confirmado".
 
@@ -25,19 +29,42 @@ Ninguna nueva — son vistas agregadas de solo lectura sobre `Usuario`, `Refugio
 | GET | /api/v1/admin/dashboard | JWT, rol Administrador | Métricas agregadas (counts por estado, totales) |
 | GET | /api/v1/admin/dashboard/exportar/:entidad | JWT, rol Administrador | CSV de una entidad (`usuarios`, `mascotas`, `publicaciones`, `solicitudes`, `campanias`), generado por streams |
 
-Ejemplo:
+Ejemplo (shape real, respuesta plana sin envelope — igual que el resto de la API):
 
 ```json
 GET /api/v1/admin/dashboard
 → 200 {
-  "usuarios": { "total": 120, "porRol": { "Adoptante": 100, "Refugio": 18, "Administrador": 2 } },
-  "refugios": { "total": 18, "verificados": 15 },
-  "mascotas": { "total": 340, "porEstado": { "Disponible": 200, "Adoptado": 100, "En_Tratamiento": 30, "Fallecido": 5, "En_Transito": 5 } },
-  "publicaciones": { "activas": 210 },
-  "solicitudes": { "porEstado": { "Pendiente": 40, "En_Revision": 10, "Aprobada": 150, "Rechazada": 30, "Cancelada": 5 } },
-  "campanias": { "activas": 6, "montoDonadoDeclarado": 450000.00 }
+  "kpis": {
+    "usuariosActivos": 120,
+    "mascotasRegistradas": 340,
+    "refugiosVerificados": 15,
+    "publicacionesActivas": 210,
+    "adopcionesConcretadas": 150,
+    "campaniasActivas": 6,
+    "montoDonadoDeclarado": 450000.00,
+    "reportesPendientes": 4
+  },
+  "usuariosPorRol": { "Adoptante": 100, "Refugio": 18, "Administrador": 2 },
+  "mascotasPorEstado": { "Disponible": 200, "Adoptado": 100, "En_Tratamiento": 30, "Fallecido": 5, "En_Transito": 5 },
+  "solicitudesPorEstado": [
+    { "estado": "Pendiente", "cantidad": 40, "porcentaje": 17.4 },
+    { "estado": "En_Revision", "cantidad": 10, "porcentaje": 4.3 },
+    { "estado": "Aprobada", "cantidad": 150, "porcentaje": 65.2 },
+    { "estado": "Rechazada", "cantidad": 30, "porcentaje": 13.0 },
+    { "estado": "Cancelada", "cantidad": 5, "porcentaje": 0.0 }
+  ],
+  "publicacionesPorMes": [
+    { "mes": "Mar", "publicaciones": 45, "adopciones": 20 },
+    { "mes": "Abr", "publicaciones": 52, "adopciones": 28 },
+    { "mes": "May", "publicaciones": 60, "adopciones": 35 },
+    { "mes": "Jun", "publicaciones": 38, "adopciones": 19 },
+    { "mes": "Jul", "publicaciones": 41, "adopciones": 22 },
+    { "mes": "Ago", "publicaciones": 30, "adopciones": 26 }
+  ]
 }
 ```
+
+`publicacionesPorMes` son siempre los últimos 6 meses (incluye el actual), meses sin datos van en 0 — no se omiten. `adopcionesConcretadas` = cantidad de `solicitudesPorEstado` con `estado: "Aprobada"` (misma fuente, no un conteo aparte).
 
 ```
 GET /api/v1/admin/dashboard/exportar/solicitudes
