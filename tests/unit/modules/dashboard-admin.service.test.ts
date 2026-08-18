@@ -163,3 +163,89 @@ describe('obtenerDashboard — publicacionesPorMes', () => {
     );
   });
 });
+
+describe('exportarEntidad — paginado por cursor', () => {
+  function usuario(id: number) {
+    return {
+      id,
+      nombre: `Usuario${id}`,
+      apellido: 'Apellido',
+      email: `u${id}@test.com`,
+      dni: `1000000${id}`,
+      verificado: true,
+      estado: { nombre: 'Activo' },
+      fechaAlta: new Date('2026-01-01'),
+    };
+  }
+
+  it('trae todas las filas iterando páginas hasta que una viene corta', async () => {
+    // FILAS_POR_PAGINA es 500 en el service: para simular "página llena" sin sembrar 500
+    // filas de fixture, la primera respuesta simula el límite (500 filas) y la segunda,
+    // la página corta que corta el loop.
+    const paginaLlena = Array.from({ length: 500 }, (_, i) => usuario(i + 1));
+    const paginaCorta = [usuario(501)];
+
+    vi.mocked(repo.paginaUsuariosParaExport)
+      .mockResolvedValueOnce(paginaLlena as never)
+      .mockResolvedValueOnce(paginaCorta as never);
+
+    const { filas } = service.exportarEntidad('usuarios');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toHaveLength(501);
+    expect(repo.paginaUsuariosParaExport).toHaveBeenCalledTimes(2);
+    expect(repo.paginaUsuariosParaExport).toHaveBeenNthCalledWith(1, undefined, 500);
+    expect(repo.paginaUsuariosParaExport).toHaveBeenNthCalledWith(2, 500, 500);
+  });
+
+  it('sin filas no llama al repository más de una vez', async () => {
+    vi.mocked(repo.paginaUsuariosParaExport).mockResolvedValue([] as never);
+
+    const { filas, headers } = service.exportarEntidad('usuarios');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toEqual([]);
+    expect(headers).toEqual([
+      'id',
+      'nombre',
+      'apellido',
+      'email',
+      'dni',
+      'verificado',
+      'estado',
+      'fechaAlta',
+    ]);
+    expect(repo.paginaUsuariosParaExport).toHaveBeenCalledTimes(1);
+  });
+
+  it('mascotas sin estado vigente no rompen el export, van con estado vacío', async () => {
+    const fechaAlta = new Date('2026-01-01');
+    vi.mocked(repo.paginaMascotasParaExport)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          nombre: 'Firulais',
+          refugioId: 1,
+          usuarioId: 2,
+          fechaAlta,
+          raza: { nombre: 'Mestizo', especie: { nombre: 'Perro' } },
+          historicoEstados: [],
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const { filas } = service.exportarEntidad('mascotas');
+    const todas = [];
+    for await (const fila of filas()) {
+      todas.push(fila);
+    }
+
+    expect(todas).toEqual([[1, 'Firulais', 'Perro', 'Mestizo', '', 1, 2, fechaAlta]]);
+  });
+});
