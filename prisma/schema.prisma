@@ -215,17 +215,21 @@ model Rol {
 // ─────────────── USUARIOS ───────────────
 
 model Usuario {
-  id         Int     @id @default(autoincrement()) @map("usuario_id")
-  nombre     String  @map("usuario_nombre")
-  apellido   String  @map("usuario_apellido")
-  email      String  @unique @map("usuario_email")
-  contrasena String  @map("usuario_contrasena")
-  telefono   String? @map("usuario_telefono")
-  dni        String  @unique @map("usuario_dni")
-  verificado Boolean @default(false) @map("usuario_verificado")
-  imagenUrl  String? @map("usuario_imagen_url")
-  refugioId  Int?    @map("refugio_id")
-  estadoId   Int     @map("estado_id")
+  id               Int       @id @default(autoincrement()) @map("usuario_id")
+  nombre           String    @map("usuario_nombre")
+  apellido         String    @map("usuario_apellido")
+  email            String    @unique @map("usuario_email")
+  // Nullable: las cuentas creadas solo con Google no tienen contraseña local.
+  contrasena       String?   @map("usuario_contrasena")
+  telefono         String?   @map("usuario_telefono")
+  // Nullable: el registro mobile actual no pide DNI; Google OAuth tampoco.
+  dni              String?   @unique @map("usuario_dni")
+  fechaNacimiento  DateTime? @map("usuario_fecha_nacimiento")
+  googleId         String?   @unique @map("usuario_google_id")
+  verificado       Boolean   @default(false) @map("usuario_verificado")
+  imagenUrl        String?   @map("usuario_imagen_url")
+  refugioId        Int?      @map("refugio_id")
+  estadoId         Int       @map("estado_id")
 
   usuarioAlta         Int       @map("usuario_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("usuario_fecha_alta")
