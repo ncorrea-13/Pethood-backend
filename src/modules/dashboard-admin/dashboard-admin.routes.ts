@@ -5,4 +5,9 @@ import * as controller from './dashboard-admin.controller';
 
 export const dashboardAdminRouter = Router();
 
-dashboardAdminRouter.get('/dashboard', autenticar, requiereRol('Administrador'), controller.obtener);
+dashboardAdminRouter.get(
+  '/dashboard',
+  autenticar,
+  requiereRol('Administrador'),
+  controller.obtener,
+);

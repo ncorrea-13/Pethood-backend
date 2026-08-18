@@ -18,10 +18,6 @@ export function contarUsuariosActivos() {
   return prisma.usuario.count({ where: { fechaBaja: null } });
 }
 
-export function contarRefugios() {
-  return prisma.refugio.count({ where: { fechaBaja: null } });
-}
-
 export function contarRefugiosVerificados() {
   return prisma.refugio.count({ where: { fechaBaja: null, verificado: true } });
 }
@@ -70,4 +66,29 @@ export async function sumarMontoDonadoDeclarado(): Promise<number> {
   });
 
   return resultado._sum.monto ? Number(resultado._sum.monto) : 0;
+}
+
+/**
+ * "Pendiente" = sin resolver todavía, no hay noción de prioridad/criticidad en el modelo
+ * (Reporte_Problema solo tiene motivo/respuesta/resuelto — ver ambigüedad #2 en REQUISITOS.md
+ * §10, la entidad ni siquiera tiene FK a Usuario dibujada). Consulta de solo lectura desde acá,
+ * no se crea un módulo de moderación propio (spec 008, futuro).
+ */
+export function contarReportesPendientes() {
+  return prisma.reporteProblema.count({ where: { fechaBaja: null, resuelto: false } });
+}
+
+/** Solo la fecha: el bucketing por mes se hace en el service (volumen chico, no justifica $queryRaw). */
+export function listarFechasPublicacionesActivas() {
+  return prisma.publicacion.findMany({
+    where: { fechaBaja: null },
+    select: { fechaAlta: true },
+  });
+}
+
+export function listarFechasSolicitudesAprobadas() {
+  return prisma.solicitudEstado.findMany({
+    where: { fechaBaja: null, estadoSolicitud: { nombre: 'Aprobada' } },
+    select: { fechaAlta: true },
+  });
 }
