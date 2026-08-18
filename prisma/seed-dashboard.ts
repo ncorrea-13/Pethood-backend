@@ -3,7 +3,7 @@
 // Deliberadamente separado de seed.ts: este repo lo tocan varias personas y prisma.seed
 // (npx prisma db seed / migrate reset) corre seed.ts automáticamente para todos. Estos datos
 // son solo para desarrollar/probar el dashboard — no deben imponerse a quien está trabajando
-// otra fase. Se corre a mano con `npm run seed:dashboard`, después de `npm run seed`.
+// otra fase. Se corre a mano, después de `npm run seed`: npx tsx prisma/seed-dashboard.ts
 //
 // Idempotente igual que seed.ts (findFirst + create) aunque Mascota/Solicitud/Campania no
 // tengan clave única natural para un upsert real.
@@ -43,6 +43,7 @@ async function main() {
   const publicaciones = await seedPublicaciones(usuarioAlta, usuarioRefugio.id, publicables);
   await seedSolicitudes(usuarioAlta, adoptante.id, tipoAdopcion.id, publicaciones);
   await seedCampaniasYDonaciones(usuarioAlta, refugio.id, adoptante.id);
+  await seedReportesProblema(usuarioAlta);
 
   console.log('✅ seed-dashboard completo.');
 }
@@ -185,6 +186,32 @@ async function seedCampaniasYDonaciones(usuarioAlta: number, refugioId: number, 
           monto: def.montoDonacion,
           campaniaId: campania.id,
           usuarioId: donanteId,
+          usuarioAlta,
+        },
+      });
+    }
+  }
+}
+
+async function seedReportesProblema(usuarioAlta: number) {
+  const definiciones = [
+    { motivo: 'Dashboard: publicación con foto engañosa', resuelto: false },
+    { motivo: 'Dashboard: usuario con lenguaje ofensivo en el chat', resuelto: false },
+    {
+      motivo: 'Dashboard: reseña falsa (ya resuelto)',
+      resuelto: true,
+      respuesta: 'Se dio de baja la reseña.',
+    },
+  ];
+
+  for (const def of definiciones) {
+    const existente = await prisma.reporteProblema.findFirst({ where: { motivo: def.motivo } });
+    if (!existente) {
+      await prisma.reporteProblema.create({
+        data: {
+          motivo: def.motivo,
+          resuelto: def.resuelto,
+          respuesta: def.respuesta ?? null,
           usuarioAlta,
         },
       });
