@@ -51,6 +51,23 @@ function manejarError(middleware: RequestHandler, maximo?: number): RequestHandl
 }
 
 /**
+ * Acepta multipart/form-data (con o sin archivo) y deja pasar JSON para no romper
+ * clientes que siguen registrándose sin foto.
+ */
+export function uploadImagenOpcional(campo: string): RequestHandler {
+  const middleware = uploadImagen(campo);
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    const contentType = req.headers['content-type'] ?? '';
+    if (contentType.toLowerCase().includes('multipart/form-data')) {
+      middleware(req, res, next);
+      return;
+    }
+    next();
+  };
+}
+
+/**
  * Upload de una única imagen. La deja en memoria (`req.file.buffer`) para que
  * comprimirImagen la procese antes de que el controller la persista.
  */

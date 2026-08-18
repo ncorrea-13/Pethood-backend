@@ -38,7 +38,7 @@ Estas son tablas simples de tipo catálogo, usadas como FK desde otras entidades
 
 ### Usuario
 
-`usuario_id PK`, `usuario_nombre`, `usuario_apellido`, `usuario_email`, `usuario_contraseña`, `usuario_telefono`, `usuario_dni`, `usuario_verificado`, `usuario_imagen_url`, FK `refugio_id` (nullable — solo aplica si el usuario pertenece a un refugio), FK `estado_id` (→ Estado_Usuario).
+`usuario_id PK`, `usuario_nombre`, `usuario_apellido`, `usuario_email`, `usuario_contraseña` (nullable si la cuenta se creó solo con Google), `usuario_telefono` (obligatorio en el registro con email/contraseña; nullable para cuentas Google), `usuario_dni` (nullable — el registro mobile actual y OAuth no lo exigen), `usuario_fecha_nacimiento` (nullable), `usuario_google_id` (nullable, único — id `sub` de Google OAuth 2.0), `usuario_verificado`, `usuario_imagen_url`, `usuario_ubicacion` (nullable — barrio/ciudad del perfil, GUI-15), FK `refugio_id` (nullable — solo aplica si el usuario pertenece a un refugio), FK `estado_id` (→ Estado_Usuario).
 
 Relaciones: 1 Usuario → N Mascota, N Publicacion, N Solicitud, N Favorito, N Notificacion, N Hogar, N Reseña (como autor), N Donacion, N Campaña, N Usuario_Chat, N Mensaje, N Rol_Usuario, N Animal_Perdido (como reportante).
 

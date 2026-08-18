@@ -1,61 +1,292 @@
-/**
- * ⚠️ MÓDULO PROVISIONAL — alcance recortado a propósito.
- *
- * El módulo de autenticación definitivo (registro, recuperación de contraseña, edición de
- * perfil) está a cargo de otro integrante. Acá vive solo lo mínimo para poder abrir sesión
- * y saber quién es el usuario. Cuando llegue el definitivo, este se reemplaza entero: no
- * construir nada nuevo encima.
- */
 import bcrypt from 'bcrypt';
+import { env } from '../../config/env';
 import { AppError } from '../../middlewares/errorHandler';
+import { parsearFechaNacimiento } from '../../shared/fechas';
 import { firmarToken } from '../../shared/jwt';
-import type { UsuarioAutenticadoDto } from './auth.dto';
-import * as repo from './auth.repository';
+import { registrarAuditoria } from '../../shared/logAuditoria';
+import { estaBloqueado, limpiarIntentos, registrarFallo } from '../../shared/rateLimit';
+import { ESTADO_USUARIO, ROL_API, rolApiADb, rolesDbAApi } from '../../shared/roles';
+import { r2Habilitado, subirImagenPerfil, type ArchivoSubida } from '../../shared/r2';
+import type {
+  LoginBody,
+  RecuperarBody,
+  RegistroBody,
+  ResetearBody,
+  RespuestaAuth,
+  RespuestaRecuperar,
+} from './auth.dto';
+import type { PerfilGoogle } from './auth.google';
+import type { UsuarioConRoles } from './auth.repository';
+import * as authRepo from './auth.repository';
+import { consumirCodigoReset, generarCodigoReset, guardarCodigoReset } from './auth.resetStore';
 
-type UsuarioConRoles = NonNullable<Awaited<ReturnType<typeof repo.buscarPorId>>>;
+const BCRYPT_COST = 10;
+const EMAIL_SISTEMA = 'sistema@pethood.internal';
 
-function aDto(usuario: UsuarioConRoles): UsuarioAutenticadoDto {
+function nombresDeRol(usuario: UsuarioConRoles): string[] {
+  return usuario.roles
+    .filter((vinculo) => vinculo.fechaBaja === null)
+    .map((vinculo) => vinculo.rol.nombre);
+}
+
+function aRespuesta(usuario: UsuarioConRoles): RespuestaAuth {
+  const rolesApi = rolesDbAApi(nombresDeRol(usuario));
   return {
-    id: usuario.id,
-    nombre: usuario.nombre,
-    apellido: usuario.apellido,
-    email: usuario.email,
-    verificado: usuario.verificado,
-    refugioId: usuario.refugioId,
-    roles: usuario.roles.map((rolUsuario) => rolUsuario.rol.nombre),
+    usuario: {
+      id: usuario.id,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      roles: rolesApi,
+      imagenUrl: usuario.imagenUrl,
+      telefono: usuario.telefono,
+      ubicacion: usuario.ubicacion,
+    },
+    token: firmarToken({ usuarioId: usuario.id, email: usuario.email, roles: rolesApi }),
   };
 }
 
-export async function login(
-  email: string,
-  contrasena: string,
-): Promise<{ token: string; usuario: UsuarioAutenticadoDto }> {
-  const usuario = await repo.buscarPorEmail(email);
-
-  // Mensaje genérico a propósito: no revelar cuál de los dos datos falló
-  // (REQUISITOS.md §7.3 / spec 001).
-  const credencialesInvalidas = new AppError(
-    'CREDENCIALES_INVALIDAS',
-    'El correo o contraseña ingresados son incorrectos',
-    401,
-  );
-
-  if (!usuario) throw credencialesInvalidas;
-
-  const coincide = await bcrypt.compare(contrasena, usuario.contrasena);
-  if (!coincide) throw credencialesInvalidas;
-
-  const dto = aDto(usuario);
-  const token = firmarToken({ usuarioId: dto.id, roles: dto.roles });
-
-  return { token, usuario: dto };
-}
-
-export async function obtenerPerfil(usuarioId: number): Promise<UsuarioAutenticadoDto> {
-  const usuario = await repo.buscarPorId(usuarioId);
-  if (!usuario) {
-    throw new AppError('NO_ENCONTRADO', 'El usuario no existe', 404);
+function asegurarPuedeIngresar(usuario: UsuarioConRoles): void {
+  if (usuario.email === EMAIL_SISTEMA) {
+    throw new AppError(
+      'CREDENCIALES_INVALIDAS',
+      'El correo o contraseña ingresados son incorrectos.',
+      401,
+    );
   }
 
-  return aDto(usuario);
+  if (usuario.estado.nombre === ESTADO_USUARIO.SUSPENDIDO) {
+    throw new AppError(
+      'USUARIO_SUSPENDIDO',
+      'Tu cuenta está suspendida. Escribinos a soporte para más información.',
+      403,
+    );
+  }
+
+  if (usuario.estado.nombre === ESTADO_USUARIO.INACTIVO) {
+    throw new AppError(
+      'CREDENCIALES_INVALIDAS',
+      'El correo o contraseña ingresados son incorrectos.',
+      401,
+    );
+  }
+}
+
+async function exigirCatalogos(rolApi: string) {
+  const estado = await authRepo.buscarEstadoPorNombre(ESTADO_USUARIO.ACTIVO);
+  const rol = await authRepo.buscarRolPorNombre(rolApiADb(rolApi));
+
+  if (!estado || !rol) {
+    throw new AppError(
+      'ERROR_INTERNO',
+      'Faltan catálogos de roles o estados. Corré el seed de la base.',
+      500,
+    );
+  }
+
+  return { estado, rol };
+}
+
+export async function registrar(
+  body: RegistroBody,
+  archivo?: ArchivoSubida,
+): Promise<RespuestaAuth> {
+  if (body.rol === ROL_API.MIEMBRO_REFUGIO) {
+    throw new AppError(
+      'VALIDACION',
+      'El registro como refugio todavía no está disponible en esta versión.',
+      400,
+    );
+  }
+
+  const existente = await authRepo.buscarPorEmail(body.email);
+  if (existente) {
+    throw new AppError('EMAIL_DUPLICADO', 'Ya existe una cuenta con ese correo.', 409);
+  }
+
+  const { estado, rol } = await exigirCatalogos(body.rol);
+  const fechaNacimiento = parsearFechaNacimiento(body.fechaNacimiento);
+  const hash = await bcrypt.hash(body.password, BCRYPT_COST);
+  const imagenUrl = archivo && r2Habilitado() ? await subirImagenPerfil(archivo) : undefined;
+
+  const usuario = await authRepo.crearUsuarioConRol(
+    {
+      nombre: body.nombre,
+      apellido: body.apellido,
+      email: body.email,
+      contrasena: hash,
+      telefono: body.telefono,
+      dni: body.dni,
+      fechaNacimiento,
+      imagenUrl,
+      verificado: false,
+      estadoId: estado.id,
+    },
+    rol.id,
+  );
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    accion: 'REGISTRO',
+    entidad: 'Usuario',
+    entidadId: usuario.id,
+    detalle: `rol=${body.rol}`,
+  });
+
+  return aRespuesta(usuario);
+}
+
+export async function login(body: LoginBody): Promise<RespuestaAuth> {
+  if (estaBloqueado(body.email)) {
+    throw new AppError(
+      'DEMASIADOS_INTENTOS',
+      'Demasiados intentos fallidos. Esperá unos minutos e intentalo de nuevo.',
+      429,
+    );
+  }
+
+  const usuario = await authRepo.buscarPorEmail(body.email);
+  if (!usuario || !usuario.contrasena) {
+    registrarFallo(body.email);
+    throw new AppError(
+      'CREDENCIALES_INVALIDAS',
+      'El correo o contraseña ingresados son incorrectos.',
+      401,
+    );
+  }
+
+  const ok = await bcrypt.compare(body.password, usuario.contrasena);
+  if (!ok) {
+    registrarFallo(body.email);
+    throw new AppError(
+      'CREDENCIALES_INVALIDAS',
+      'El correo o contraseña ingresados son incorrectos.',
+      401,
+    );
+  }
+
+  asegurarPuedeIngresar(usuario);
+  limpiarIntentos(body.email);
+
+  return aRespuesta(usuario);
+}
+
+export async function loginConGoogle(perfil: PerfilGoogle): Promise<RespuestaAuth> {
+  const porGoogle = await authRepo.buscarPorGoogleId(perfil.googleId);
+  if (porGoogle) {
+    asegurarPuedeIngresar(porGoogle);
+    return aRespuesta(porGoogle);
+  }
+
+  const porEmail = await authRepo.buscarPorEmail(perfil.email);
+  if (porEmail) {
+    asegurarPuedeIngresar(porEmail);
+    const vinculado = await authRepo.vincularGoogleId(
+      porEmail.id,
+      perfil.googleId,
+      perfil.imagenUrl,
+    );
+    await registrarAuditoria({
+      usuarioId: vinculado.id,
+      accion: 'VINCULAR_GOOGLE',
+      entidad: 'Usuario',
+      entidadId: vinculado.id,
+    });
+    return aRespuesta(vinculado);
+  }
+
+  const { estado, rol } = await exigirCatalogos(ROL_API.ADOPTANTE);
+  const usuario = await authRepo.crearUsuarioConRol(
+    {
+      nombre: perfil.nombre,
+      apellido: perfil.apellido,
+      email: perfil.email,
+      googleId: perfil.googleId,
+      imagenUrl: perfil.imagenUrl,
+      verificado: true,
+      estadoId: estado.id,
+    },
+    rol.id,
+  );
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    accion: 'REGISTRO_GOOGLE',
+    entidad: 'Usuario',
+    entidadId: usuario.id,
+  });
+
+  return aRespuesta(usuario);
+}
+
+export async function perfilPropio(usuarioId: number): Promise<RespuestaAuth['usuario']> {
+  const usuario = await authRepo.buscarPorId(usuarioId);
+  if (!usuario) {
+    throw new AppError('NO_AUTENTICADO', 'No encontramos tu sesión.', 401);
+  }
+  return aRespuesta(usuario).usuario;
+}
+
+const MENSAJE_RECUPERAR =
+  'Si el correo está registrado, te enviamos un código para restablecer tu contraseña.';
+
+function puedeRecuperar(usuario: UsuarioConRoles): boolean {
+  if (usuario.email === EMAIL_SISTEMA) return false;
+  const estado = usuario.estado.nombre;
+  return estado !== ESTADO_USUARIO.SUSPENDIDO && estado !== ESTADO_USUARIO.INACTIVO;
+}
+
+export async function solicitarRecuperacion(body: RecuperarBody): Promise<RespuestaRecuperar> {
+  const usuario = await authRepo.buscarPorEmail(body.email);
+
+  if (!usuario || !puedeRecuperar(usuario)) {
+    return { mensaje: MENSAJE_RECUPERAR };
+  }
+
+  const codigo = generarCodigoReset();
+  guardarCodigoReset(usuario.email, usuario.id, codigo);
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    accion: 'SOLICITAR_RECUPERACION',
+    entidad: 'Usuario',
+    entidadId: usuario.id,
+  });
+
+  if (env.NODE_ENV !== 'production') {
+    console.info(`[auth] Código de recuperación para ${usuario.email}: ${codigo}`);
+    return { mensaje: MENSAJE_RECUPERAR, codigo };
+  }
+
+  return { mensaje: MENSAJE_RECUPERAR };
+}
+
+export async function resetearPassword(body: ResetearBody): Promise<void> {
+  const usuarioId = consumirCodigoReset(body.email, body.codigo);
+  if (!usuarioId) {
+    throw new AppError(
+      'CODIGO_INVALIDO',
+      'El código es inválido o expiró. Pedí uno nuevo e intentalo de nuevo.',
+      400,
+    );
+  }
+
+  const usuario = await authRepo.buscarPorId(usuarioId);
+  if (!usuario || usuario.email !== body.email) {
+    throw new AppError(
+      'CODIGO_INVALIDO',
+      'El código es inválido o expiró. Pedí uno nuevo e intentalo de nuevo.',
+      400,
+    );
+  }
+
+  const hash = await bcrypt.hash(body.password, BCRYPT_COST);
+  await authRepo.actualizarContrasena(usuario.id, hash);
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    accion: 'RESETEAR_CONTRASENA',
+    entidad: 'Usuario',
+    entidadId: usuario.id,
+  });
 }

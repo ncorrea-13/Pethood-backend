@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Archivos subidos por usuarios (fotos de mascotas, etc.)
 uploads
+
+# Config local de Docker Compose, no se commitea
+docker-compose.override.yml
