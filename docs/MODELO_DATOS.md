@@ -54,9 +54,15 @@ Relaciones: 1 Refugio → N Campaña, 1 Refugio → N Reseña (como reportado/ `
 
 ### Mascota
 
-`mascota_id PK`, `mascota_nombre`, `mascota_fecha_nacimiento`, `mascota_genero`, `mascota_castrado`, `mascota_descripcion`, `mascota_imagen_url`, FK `raza_id NOT NULL`, FK `refugio_id` (nullable), FK `usuario_id NOT NULL` (dueño/creador).
+`mascota_id PK`, `mascota_nombre`, `mascota_fecha_nacimiento`, `mascota_genero`, `mascota_peso`, `mascota_tamanio`, `mascota_castrado`, `mascota_descripcion`, `mascota_imagen_url`, FK `raza_id NOT NULL`, FK `refugio_id` (nullable), FK `usuario_id NOT NULL` (dueño/creador).
+
+**Campos agregados fuera del diagrama de clases (2026-08-13, HU-6.1):** `mascota_peso` (`Decimal(4,1)`) y `mascota_tamanio` (enum `PEQUENO`/`MEDIANO`/`GRANDE`) **no figuran en el diagrama de clases original**, pero HU-6.1 AC-12 y AC-13 los pide como campos base obligatorios del formulario de creación. Se agregaron por migración. Pendiente: reflejarlos en el diagrama de clases del grupo para que no vuelvan a divergir.
+
+Ambos son nullables en base, igual que `mascota_nombre` y `mascota_fecha_nacimiento` — que también son obligatorios en HU-6.1 pero nacieron nullables. La obligatoriedad se impone en el DTO Zod del módulo, no en la columna, para no bloquear altas de Mascota desde otros flujos (ej. un animal encontrado sin datos completos, Módulo 13).
 
 Validaciones de negocio (HU-6.1): nombre 2-25 caracteres (con trim); fecha de nacimiento nunca futura; peso numérico con hasta 1 decimal (acepta punto o coma); tamaño = selector cerrado Pequeño/Mediano/Grande; sexo = selector cerrado Macho/Hembra; foto obligatoria (≤5MB, jpg/png/webp/jpeg); especie/raza dependientes en cascada.
+
+**Estado inicial al crear (decisión de equipo, 2026-08-13):** toda Mascota nace con una fila en `Mascota_Estado`. El formulario del refugio (GUI-30) tiene selector de Estado explícito (AC-16). El del adoptante (GUI-16) no lo tiene: se deriva del selector "¿Es tu mascota o es para adopción?" — "para adopción" → `Disponible`, "es mi mascota" → `Adoptado` (ya tiene dueño, no se ofrece publicar).
 
 ### Mascota_Estado
 
@@ -68,7 +74,22 @@ Ver catálogos arriba.
 
 ### Publicacion
 
-`publicacion_id PK`, `publicacion_titulo`, `publicacion_descripcion` (máx. 50 caracteres, trim), `publicacion_imagen_url`, FK `mascota_id FK NOT NULL`, FK `usuario_id FK NOT NULL`.
+`publicacion_id PK`, `publicacion_titulo`, `publicacion_descripcion` (máx. 50 caracteres, trim), `publicacion_ubicacion`, `publicacion_requisitos`, `publicacion_imagen_url`, FK `mascota_id FK NOT NULL`, FK `usuario_id FK NOT NULL`.
+
+**Campos agregados fuera del diagrama de clases (2026-08-13, HU-6.1):** `publicacion_ubicacion` (texto libre ≤50 caracteres con trim, AC-27) y `publicacion_requisitos` (`text[]`, los "Requisitos del adoptante" del tag input de AC-26, cada etiqueta ≤25 caracteres). Los requisitos se modelan como array plano y no como tabla hija porque cada uno es solo una etiqueta de texto libre sin atributos ni ciclo de vida propio. Pendiente: reflejarlos en el diagrama de clases del grupo.
+
+**Campos agregados por el diseño de GUI-24 (2026-08-17):** tampoco están en el diagrama de clases.
+
+| Campo | Tipo | Para qué |
+|---|---|---|
+| `publicacion_imagenes` | `text[]` | Hasta 5 fotos. **El orden del array es el orden de la galería**: la primera es la portada. `publicacion_imagen_url` se mantiene sincronizado con esa portada para no romper lo que ya lee ese campo. Si no se suben fotos propias, se hereda la de la mascota. |
+| `publicacion_personalidad` | `text[]` | Rasgos elegidos como pastillas (≤25 caracteres cada uno). Hoy las opciones están fijas en el frontend; cuando se definan, deberían pasar a ser un catálogo como Especie o Raza. |
+| `publicacion_desparasitado` | `boolean` | Del interruptor de GUI-24. |
+| `publicacion_vacunas` | `text` | Texto libre ≤200. **Provisional**: el diseño muestra pastillas por vacuna (Rabia, Parvovirus, Moquillo, Triple) y conceptualmente esto pertenece a `Historia_Clinica` (Módulo 8, Fase 6). Se guarda como texto hasta que ese módulo exista. |
+
+**A revisar con el equipo:** los datos de salud (desparasitado, vacunas) viven hoy en `Publicacion` por conveniencia de la pantalla, pero su lugar natural es `Historia_Clinica`. Cuando se implemente la Fase 6, evaluar migrarlos.
+
+**Pendiente de definición:** `publicacion_titulo` es NOT NULL en el schema, pero el formulario de GUI-24 (AC-25 a AC-28) no pide un título — solo descripción, requisitos y ubicación. Confirmar con el equipo si el título se deriva del nombre de la mascota o si falta el campo en la pantalla.
 
 Relaciones: 1 Publicacion → N Solicitud, N Favorito (vía Mascota), 1 Publicacion → N Reseña (visibles en contexto de publicación/solicitud).
 
