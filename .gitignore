@@ -142,4 +142,4 @@ vite.config.ts.timestamp-*
 uploads
 
 # Config local de Docker Compose, no se commitea
-docker-compose.override.ym
+docker-compose.override.yml
