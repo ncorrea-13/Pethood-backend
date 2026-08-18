@@ -253,7 +253,14 @@ describe('exportarEntidad — paginado por cursor', () => {
     const fechaAlta = new Date('2026-01-01');
     vi.mocked(repo.paginaPublicacionesParaExport)
       .mockResolvedValueOnce([
-        { id: 1, titulo: 'Se busca hogar', mascotaId: 1, usuarioId: 2, ubicacion: 'Mendoza', fechaAlta },
+        {
+          id: 1,
+          titulo: 'Se busca hogar',
+          mascotaId: 1,
+          usuarioId: 2,
+          ubicacion: 'Mendoza',
+          fechaAlta,
+        },
       ] as never)
       .mockResolvedValueOnce([] as never);
 
@@ -339,6 +346,8 @@ describe('exportarEntidad — paginado por cursor', () => {
       todas.push(fila);
     }
 
-    expect(todas).toEqual([[1, 'Campaña con objetivo', '50000', 'Activa', 1, fechaInicio, fechaFin]]);
+    expect(todas).toEqual([
+      [1, 'Campaña con objetivo', '50000', 'Activa', 1, fechaInicio, fechaFin],
+    ]);
   });
 });

@@ -53,8 +53,12 @@ async function main() {
 
 /** Cuenta admin de prueba para loguearse en el dashboard (cookie.sh, panel web-admin). */
 async function seedAdmin(usuarioAlta: number) {
-  const estadoActivo = await prisma.estadoUsuario.findUniqueOrThrow({ where: { nombre: 'Activo' } });
-  const rolAdministrador = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Administrador' } });
+  const estadoActivo = await prisma.estadoUsuario.findUniqueOrThrow({
+    where: { nombre: 'Activo' },
+  });
+  const rolAdministrador = await prisma.rol.findUniqueOrThrow({
+    where: { nombre: 'Administrador' },
+  });
 
   const admin = await prisma.usuario.upsert({
     where: { email: 'admin@pethood.test' },
