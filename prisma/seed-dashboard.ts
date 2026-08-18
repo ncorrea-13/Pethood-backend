@@ -35,8 +35,10 @@ async function main() {
   const usuarioAlta = sistema.id;
 
   const mascotas = await seedMascotas(usuarioAlta, refugio.id, usuarioRefugio.id, raza.id);
+  // Incluye "Adoptado": tuvo publicación antes de que se aprobara la solicitud que la sacó
+  // de circulación — necesaria para que las 5 solicitudes cubran los 5 EstadoSolicitud.
   const publicables = mascotas.filter((m) =>
-    ['Disponible', 'En_Tratamiento', 'En_Transito'].includes(m.estadoNombre),
+    ['Disponible', 'En_Tratamiento', 'En_Transito', 'Adoptado'].includes(m.estadoNombre),
   );
   const publicaciones = await seedPublicaciones(usuarioAlta, usuarioRefugio.id, publicables);
   await seedSolicitudes(usuarioAlta, adoptante.id, tipoAdopcion.id, publicaciones);
