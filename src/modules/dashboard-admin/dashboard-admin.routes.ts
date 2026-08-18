@@ -11,3 +11,10 @@ dashboardAdminRouter.get(
   requiereRol('Administrador'),
   controller.obtener,
 );
+
+dashboardAdminRouter.get(
+  '/dashboard/exportar/:entidad',
+  autenticar,
+  requiereRol('Administrador'),
+  controller.exportar,
+);
