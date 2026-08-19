@@ -6,12 +6,7 @@ import * as controller from './dashboard-admin.controller';
 
 export const dashboardAdminRouter = Router();
 
-dashboardAdminRouter.get(
-  '/dashboard',
-  autenticar,
-  requiereRol(ROL_API.ADMIN),
-  controller.obtener,
-);
+dashboardAdminRouter.get('/dashboard', autenticar, requiereRol(ROL_API.ADMIN), controller.obtener);
 
 dashboardAdminRouter.get(
   '/dashboard/exportar/:entidad',
