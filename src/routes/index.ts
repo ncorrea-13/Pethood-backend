@@ -3,6 +3,7 @@ import { authRouter } from '../modules/auth/auth.routes';
 import { usuariosRouter } from '../modules/usuarios/usuarios.routes';
 import { catalogosRouter } from '../modules/catalogos/catalogos.routes';
 import { dashboardAdminRouter } from '../modules/dashboard-admin/dashboard-admin.routes';
+import { favoritosRouter } from '../modules/favoritos/favoritos.routes';
 import { mascotasRouter } from '../modules/mascotas/mascotas.routes';
 import { publicacionesRouter } from '../modules/publicaciones/publicaciones.routes';
 
@@ -21,6 +22,7 @@ apiRouter.use('/usuarios', usuariosRouter);
 // apiRouter.use('/publicaciones', pubRouter);    // spec 002
 apiRouter.use('/mascotas', mascotasRouter);
 apiRouter.use('/publicaciones', publicacionesRouter);
+apiRouter.use('/favoritos', favoritosRouter);
 apiRouter.use('/', catalogosRouter);
 
 // Módulos (descomentar a medida que se implementan las specs):
