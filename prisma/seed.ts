@@ -243,6 +243,121 @@ async function asignarRol(usuarioId: number, rolId: number, usuarioAlta: number)
   await prisma.rolUsuario.create({ data: { usuarioId, rolId, usuarioAlta } });
 }
 
+/**
+ * Mascotas del refugio + sus publicaciones + favoritos del adoptante, para poder ver
+ * GUI-12 (HU-6.6) con datos reales.
+ *
+ * Las mascotas son del refugio y no del adoptante a propósito: el backend rechaza guardar
+ * en favoritos una mascota propia, así que sembrarlas al revés daría datos que la API
+ * nunca habría aceptado.
+ *
+ * Cada mascota lleva publicación activa (es requisito para guardarla) y su fila de
+ * Mascota_Estado, sin la cual el listado la descartaría por no tener estado vigente.
+ *
+ * Los estados son variados a propósito, para ver los distintos badges: HU-6.6 pide que una
+ * mascota siga en la lista aunque cambie de estado.
+ */
+async function seedFavoritosDePrueba(usuarioAlta: number) {
+  if (process.env.NODE_ENV === 'production') return;
+
+  const adoptante = await prisma.usuario.findUnique({
+    where: { email: 'adoptante@pethood.test' },
+  });
+  const usuarioRefugio = await prisma.usuario.findUnique({
+    where: { email: 'refugio@pethood.test' },
+  });
+
+  if (!adoptante || !usuarioRefugio) return;
+
+  const especiePerro = await prisma.especie.findUniqueOrThrow({ where: { nombre: 'Perro' } });
+  const raza = await prisma.raza.findUniqueOrThrow({
+    where: { nombre_especieId: { nombre: 'Mestizo', especieId: especiePerro.id } },
+  });
+
+  const hoy = new Date();
+  const haceDias = (dias: number) => new Date(hoy.getTime() - dias * 24 * 60 * 60 * 1000);
+  const cumpleHaceAnios = (anios: number) =>
+    new Date(hoy.getFullYear() - anios, hoy.getMonth(), hoy.getDate());
+
+  // Los tres primeros son los de GUI-12. Son 5 en total (impar) a propósito: así se ve que
+  // la última tarjeta de la grilla de dos columnas conserva su mitad y no se estira.
+  const catalogo = [
+    { nombre: 'Max', anios: 2, estado: 'Disponible', guardadoHaceDias: 0 },
+    { nombre: 'Luna', anios: 1, estado: 'Disponible', guardadoHaceDias: 1 },
+    { nombre: 'Toby', anios: 4, estado: 'En_Transito', guardadoHaceDias: 3 },
+    { nombre: 'Rocky', anios: 6, estado: 'En_Tratamiento', guardadoHaceDias: 8 },
+    { nombre: 'Mia', anios: 3, estado: 'Adoptado', guardadoHaceDias: 20 },
+  ];
+
+  for (const item of catalogo) {
+    const estado = await prisma.estadoMascota.findUniqueOrThrow({
+      where: { nombre: item.estado },
+    });
+
+    // Mascota no tiene clave natural única, así que el upsert se hace a mano igual que en
+    // asignarRol: se busca por (nombre, dueño) y recién si no está se crea.
+    let mascota = await prisma.mascota.findFirst({
+      where: { nombre: item.nombre, usuarioId: usuarioRefugio.id, fechaBaja: null },
+    });
+
+    if (!mascota) {
+      mascota = await prisma.mascota.create({
+        data: {
+          nombre: item.nombre,
+          fechaNacimiento: cumpleHaceAnios(item.anios),
+          genero: item.nombre === 'Luna' || item.nombre === 'Mia' ? 'HEMBRA' : 'MACHO',
+          castrado: true,
+          descripcion: `${item.nombre} está esperando una familia.`,
+          razaId: raza.id,
+          refugioId: usuarioRefugio.refugioId,
+          usuarioId: usuarioRefugio.id,
+          usuarioAlta,
+          historicoEstados: { create: { estadoMascotaId: estado.id, usuarioAlta } },
+        },
+      });
+    }
+
+    const publicacion = await prisma.publicacion.findFirst({
+      where: { mascotaId: mascota.id, fechaBaja: null },
+    });
+
+    if (!publicacion) {
+      await prisma.publicacion.create({
+        data: {
+          titulo: `${item.nombre} busca hogar`,
+          descripcion: 'Publicación de prueba del seed.',
+          ubicacion: 'Mendoza',
+          requisitos: [],
+          personalidad: [],
+          vacunas: 'Al día',
+          imagenes: [],
+          mascotaId: mascota.id,
+          usuarioId: usuarioRefugio.id,
+          usuarioAlta,
+        },
+      });
+    }
+
+    const favorito = await prisma.favorito.findFirst({
+      where: { usuarioId: adoptante.id, mascotaId: mascota.id, fechaBaja: null },
+    });
+
+    if (!favorito) {
+      // `fechaAlta` escalonada: el listado ordena por ella y así se nota el orden.
+      await prisma.favorito.create({
+        data: {
+          usuarioId: adoptante.id,
+          mascotaId: mascota.id,
+          usuarioAlta: adoptante.id,
+          fechaAlta: haceDias(item.guardadoHaceDias),
+        },
+      });
+    }
+  }
+
+  console.log(`⭐ Favoritos de prueba: ${catalogo.length} para adoptante@pethood.test`);
+}
+
 async function main() {
   // 1) EstadoUsuario primero: Usuario.estadoId lo necesita como FK real.
   await seedEstadosUsuario(1);
@@ -265,6 +380,9 @@ async function main() {
 
   // 4) Cuentas de prueba (solo fuera de producción): necesitan Rol y Estado_Refugio ya sembrados.
   await seedUsuariosDePrueba(sistemaId, estadoActivo.id);
+
+  // 5) Datos de prueba de favoritos: dependen de las cuentas y de Especie/Raza/EstadoMascota.
+  await seedFavoritosDePrueba(sistemaId);
 
   console.log(`✅ Seed completo. Usuario SISTEMA id=${sistemaId}`);
 }

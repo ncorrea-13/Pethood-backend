@@ -408,6 +408,16 @@ model Publicacion {
   @@map("publicacion")
 }
 
+// Además del índice de abajo, la tabla tiene dos índices PARCIALES que Prisma no sabe
+// expresar y viven en `migrations/20260820120000_favorito_indices_parciales`:
+//
+// - `favorito_usuario_mascota_activo_uq` — único (usuario, mascota) WHERE fecha_baja IS NULL.
+//   Garantiza un solo favorito activo por par sin impedir volver a guardar algo que se quitó.
+// - `favorito_usuario_fecha_alta_idx` — (usuario, fecha_alta DESC) WHERE fecha_baja IS NULL,
+//   para el orden por defecto de HU-6.6.
+//
+// Quitar un favorito es baja lógica (regla 1 de CLAUDE.md): cada ciclo de guardar/quitar
+// deja su propia fila, así que el par (usuario, mascota) puede repetirse en el histórico.
 model Favorito {
   id        Int @id @default(autoincrement()) @map("favorito_id")
   usuarioId Int @map("usuario_id")

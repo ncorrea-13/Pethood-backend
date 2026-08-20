@@ -9,7 +9,10 @@ const includePerfil = {
   _count: {
     select: {
       mascotas: { where: { fechaBaja: null } },
-      favoritos: { where: { fechaBaja: null } },
+      // El filtro por `mascota` no es opcional: tiene que dar el mismo número que
+      // `GET /favoritos`, que descarta las mascotas dadas de baja. Sin él, al eliminarse
+      // una mascota guardada el perfil muestra "5" y GUI-12 lista 4.
+      favoritos: { where: { fechaBaja: null, mascota: { fechaBaja: null } } },
     },
   },
 } as const;
