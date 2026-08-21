@@ -15,7 +15,13 @@ Plataforma híbrida de gestión de adopción de mascotas que conecta **adoptante
 - `docs/ARQUITECTURA.md` — árbol de directorios de este repo y de `pethood-frontend`, convención de branches.
 - `docs/specs/` — una spec aprobada por módulo antes de codificarlo.
 
-**Antes de cualquier modificación, releer `docs/ARQUITECTURA.md`, `docs/ROADMAP.md` y `docs/CONSTITUTION.md`** — definen cómo se organiza el código, en qué orden se construye y qué reglas son innegociables.
+No se leen completas en cada cambio: consultá solo lo que la tarea toque.
+
+- Tocás una entidad o campo (`schema.prisma`, DTOs) → `docs/MODELO_DATOS.md`: nombres exactos, PK/FK y cardinalidades — no inventar campos.
+- Implementás funcionalidad nueva → buscá la HU en `docs/REQUISITOS.md` y respetá sus criterios de aceptación literales (textos de error, límites de caracteres, nombres de botones): son consigna académica evaluable.
+- Creás un módulo o directorio nuevo → mirá el árbol de directorios en `docs/ARQUITECTURA.md`.
+- Dudás en prioridades o dependencias entre módulos → `docs/ROADMAP.md`.
+- Duda sobre un principio no negociable → `docs/CONSTITUTION.md` (sus reglas operativas ya viven resumidas en «Reglas transversales», más abajo).
 
 ## Arquitectura general del proyecto
 
@@ -56,7 +62,7 @@ Dos frontends distintos consumiendo **una única API REST** de este backend. El 
 npm install              # dependencias
 docker compose up -d     # PostgreSQL local (puerto 5432)
 npx prisma migrate dev   # aplica migraciones y regenera el cliente
-npm run dev              # servidor en http://localhost:3000 (hot reload)
+npm run dev              # servidor
 npm run build && npm start  # producción
 npm run lint             # ESLint
 ```
@@ -133,8 +139,6 @@ peso:   decimalSchema({ ...LIMITES.mascota.peso, etiqueta: 'El peso' }),
 
 ## Cómo trabajar con esta documentación
 
-- Antes de tocar código de una entidad, revisar `docs/MODELO_DATOS.md` para confirmar atributos, PK/FK y cardinalidades exactas — no inventar campos.
-- Antes de implementar una funcionalidad, buscar la HU en `docs/REQUISITOS.md` y respetar los criterios de aceptación literalmente (textos de error, límites de caracteres, nombres de botones) — son parte de la consigna académica evaluable.
 - Si una HU es ambigua o contradictoria (ver sección 10 de `docs/REQUISITOS.md`), preguntar al equipo antes de asumir.
 - Mantener la separación estricta backend/frontend: el backend no conoce detalles de UI; el frontend valida solo para UX, el backend es la fuente de verdad de las reglas de negocio.
-- Si cambia algo estructural acá (modelo de datos, roadmap, convenciones), propagarlo a mano al `CLAUDE.md` de `pethood-frontend` — no quedan sincronizados automáticamente.
+- Si cambia algo estructural acá (modelo de datos, roadmap, convenciones), propagarlo a mano al `AGENTS.md` de `pethood-frontend` — no quedan sincronizados automáticamente.
