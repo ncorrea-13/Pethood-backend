@@ -61,6 +61,93 @@ export const crearPublicacionSchema = z.object({
 
 export type CrearPublicacionDto = z.infer<typeof crearPublicacionSchema>;
 
+/** Tamaño de página del feed y tope duro, para que un cliente no pida la tabla entera. */
+export const FEED_LIMITE_POR_DEFECTO = 20;
+export const FEED_LIMITE_MAXIMO = 50;
+
+/**
+ * Rasgos canónicos de `personalidad` con los que se resuelven los filtros de compatibilidad.
+ * El modelo no tiene columnas para esto: la compatibilidad se declara al publicar eligiendo
+ * el rasgo, así que los strings tienen que coincidir exactamente con los que ofrece el
+ * formulario de crear publicación en la app.
+ */
+export const RASGO_COMPATIBLE_NINIOS = 'Bueno con chicos';
+export const RASGO_COMPATIBLE_OTRAS_MASCOTAS = 'Bueno con otras mascotas';
+
+/** En query string todo llega como texto; sólo `'true'` activa el filtro. */
+const banderaSchema = z
+  .string()
+  .optional()
+  .transform((valor) => valor === 'true');
+
+const enteroOpcionalSchema = (etiqueta: string) =>
+  z.coerce.number().int(`${etiqueta} no es válido`).min(0, `${etiqueta} no es válido`).optional();
+
+export const filtrosFeedSchema = z.object({
+  especieId: z.coerce.number().int().positive('La especie no es válida').optional(),
+  tamanio: z.enum(['PEQUENO', 'MEDIANO', 'GRANDE']).optional(),
+  genero: z.enum(['MACHO', 'HEMBRA']).optional(),
+  /** Años cumplidos, inclusivo. */
+  edadMin: enteroOpcionalSchema('La edad mínima'),
+  /** Años cumplidos, exclusivo: el rango "1–3 años" es `edadMin=1&edadMax=3`. */
+  edadMax: enteroOpcionalSchema('La edad máxima'),
+  castrado: banderaSchema,
+  compatibleNinios: banderaSchema,
+  compatibleOtrasMascotas: banderaSchema,
+  limite: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(FEED_LIMITE_MAXIMO)
+    .optional()
+    .default(FEED_LIMITE_POR_DEFECTO),
+  desplazamiento: z.coerce.number().int().min(0).optional().default(0),
+});
+
+export type FiltrosFeedDto = z.infer<typeof filtrosFeedSchema>;
+
+/** Mascota tal como la necesitan la tarjeta del feed y la ficha completa. */
+export interface MascotaPublicadaDto {
+  id: number;
+  nombre: string | null;
+  /** `AAAA-MM-DD` o null. La edad se calcula en el cliente. */
+  fechaNacimiento: string | null;
+  genero: 'MACHO' | 'HEMBRA';
+  tamanio: 'PEQUENO' | 'MEDIANO' | 'GRANDE' | null;
+  peso: number | null;
+  castrado: boolean;
+  descripcion: string | null;
+  imagenUrl: string | null;
+  especie: { id: number; nombre: string };
+  raza: { id: number; nombre: string };
+  estado: { id: number; nombre: string };
+}
+
+export interface PublicacionFeedDto {
+  id: number;
+  titulo: string;
+  descripcion: string | null;
+  ubicacion: string | null;
+  requisitos: string[];
+  personalidad: string[];
+  desparasitado: boolean;
+  vacunas: string | null;
+  /** En orden; la primera es la portada. Rutas relativas al origen de la API. */
+  imagenes: string[];
+  fechaPublicacion: string;
+  mascota: MascotaPublicadaDto;
+  /** Null cuando publica un adoptante particular y no un refugio. */
+  refugio: { id: number; nombre: string; direccion: string } | null;
+  /** Si el usuario que consulta ya la tiene guardada. */
+  enFavoritos: boolean;
+}
+
+export interface FeedPublicacionesDto {
+  /** Total que matchea los filtros, no el largo de esta página. */
+  total: number;
+  publicaciones: PublicacionFeedDto[];
+}
+
 export interface PublicacionCreadaDto {
   id: number;
   titulo: string;

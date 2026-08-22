@@ -358,6 +358,237 @@ async function seedFavoritosDePrueba(usuarioAlta: number) {
   console.log(`⭐ Favoritos de prueba: ${catalogo.length} para adoptante@pethood.test`);
 }
 
+/**
+ * Mascotas publicadas para el feed de adopción.
+ *
+ * Son distintas de las de `seedFavoritosDePrueba` a propósito: el feed excluye lo que el
+ * usuario ya guardó, así que si se reusaran esas cinco la pantalla arrancaría en el estado
+ * vacío. Los atributos están variados para que los filtros de búsqueda tengan algo que
+ * recortar: hay perros y gatos, los tres tamaños, ambos sexos y edades en los cuatro rangos.
+ *
+ * Las fotos son de Unsplash porque el seed no puede subir archivos al storage local; el
+ * cliente las usa tal cual al ser absolutas. Cambiarlas por fotos propias es solo editar
+ * esta lista.
+ */
+async function seedFeedDeAdopcion(usuarioAlta: number) {
+  if (process.env.NODE_ENV === 'production') return;
+
+  const usuarioRefugio = await prisma.usuario.findUnique({
+    where: { email: 'refugio@pethood.test' },
+  });
+
+  if (!usuarioRefugio) return;
+
+  const disponible = await prisma.estadoMascota.findUniqueOrThrow({
+    where: { nombre: 'Disponible' },
+  });
+
+  const foto = (id: string) => `https://images.unsplash.com/${id}?w=1200&q=80`;
+
+  const catalogo = [
+    {
+      nombre: 'Nala',
+      especie: 'Perro',
+      raza: 'Labrador',
+      tamanio: 'GRANDE' as const,
+      genero: 'HEMBRA' as const,
+      anios: 2,
+      castrada: true,
+      personalidad: ['Juguetón', 'Cariñoso', 'Bueno con chicos'],
+      requisitos: ['Casa con patio', 'Tiempo para paseos diarios'],
+      vacunas: 'Rabia, Parvovirus, Moquillo',
+      descripcion:
+        'Nala llegó al refugio hace ocho meses después de que la encontraran sola en la ruta. ' +
+        'Es una labradora enorme y torpe que todavía no entiende que ya no entra en ninguna falda. ' +
+        'Aprende rapidísimo, ya sabe sentarse y dar la pata, y se lleva bien con todos los chicos ' +
+        'que la visitan.',
+      fotos: [
+        'photo-1552053831-71594a27632d',
+        'photo-1543466835-00a7907e9de1',
+        'photo-1561037404-61cd46aa615b',
+        'photo-1517423440428-a5a00ad493e8',
+      ],
+    },
+    {
+      nombre: 'Pipo',
+      especie: 'Perro',
+      raza: 'Caniche',
+      tamanio: 'PEQUENO' as const,
+      genero: 'MACHO' as const,
+      anios: 8,
+      castrada: true,
+      personalidad: ['Tranquilo', 'Cariñoso', 'Bueno con otras mascotas'],
+      requisitos: ['Ambiente tranquilo'],
+      vacunas: 'Rabia, Quíntuple',
+      descripcion:
+        'Pipo es un señor mayor que ya hizo todo lo que tenía que hacer en la vida y ahora solo ' +
+        'quiere un sillón cerca de una ventana. Duerme la mayor parte del día, camina despacio y ' +
+        'convive sin problema con otros perros y con gatos. Busca una casa donde envejecer tranquilo.',
+      fotos: [
+        'photo-1591160690555-5debfba289f0',
+        'photo-1526336024174-e58f5cdd8e13',
+        'photo-1548199973-03cce0bbc87b',
+      ],
+    },
+    {
+      nombre: 'Simba',
+      especie: 'Gato',
+      raza: 'Siames',
+      tamanio: 'PEQUENO' as const,
+      genero: 'MACHO' as const,
+      anios: 1,
+      castrada: false,
+      personalidad: ['Activo', 'Independiente', 'Juguetón'],
+      requisitos: ['Balcón cerrado o red de protección'],
+      vacunas: 'Triple felina',
+      descripcion:
+        'Simba tiene un año y la energía de tres gatos juntos. Se trepa a todo, abre puertas de ' +
+        'placard y ya rompió dos macetas. Necesita una casa con ventanas protegidas y gente que le ' +
+        'siga el ritmo. A cambio duerme sobre tu cabeza todas las noches.',
+      fotos: [
+        'photo-1514888286974-6c03e2ca1dba',
+        'photo-1495360010541-f48722b34f7d',
+        'photo-1518791841217-8f162f1e1131',
+        'photo-1583337130417-3346a1be7dee',
+        'photo-1596492784531-6e6eb5ea9993',
+      ],
+    },
+    {
+      nombre: 'Coco',
+      especie: 'Perro',
+      raza: 'Mestizo',
+      tamanio: 'MEDIANO' as const,
+      genero: 'MACHO' as const,
+      anios: 4,
+      castrada: true,
+      personalidad: ['Sociable', 'Protector', 'Bueno con chicos', 'Bueno con otras mascotas'],
+      requisitos: ['Familia con experiencia en perros medianos'],
+      vacunas: 'Rabia, Séxtuple',
+      descripcion:
+        'Coco es el perro más equilibrado del refugio: ni tímido ni desbordado. Camina bien con ' +
+        'correa, saluda a todo el mundo y se acuesta solo cuando ve que bajás el ritmo. Convive con ' +
+        'perros, gatos y chicos sin que haya que explicarle nada.',
+      fotos: [
+        'photo-1568572933382-74d440642117',
+        'photo-1587300003388-59208cc962cb',
+        'photo-1601979031925-424e53b6caaa',
+      ],
+    },
+    {
+      nombre: 'Kira',
+      especie: 'Gato',
+      raza: 'Mestizo',
+      tamanio: 'PEQUENO' as const,
+      genero: 'HEMBRA' as const,
+      anios: 5,
+      castrada: true,
+      personalidad: ['Tranquilo', 'Independiente'],
+      requisitos: ['Casa sin perros'],
+      vacunas: 'Triple felina, Rabia',
+      descripcion:
+        'Kira tarda en confiar, pero cuando lo hace no se despega. Prefiere una casa sin perros y ' +
+        'sin demasiado movimiento. Le gusta mirar por la ventana durante horas y pide upa solo ' +
+        'cuando ella lo decide.',
+      fotos: [
+        'photo-1596492784531-6e6eb5ea9993',
+        'photo-1583337130417-3346a1be7dee',
+        'photo-1514888286974-6c03e2ca1dba',
+      ],
+    },
+    {
+      nombre: 'Rocco',
+      especie: 'Perro',
+      raza: 'Bulldog',
+      tamanio: 'MEDIANO' as const,
+      genero: 'MACHO' as const,
+      anios: 0,
+      castrada: false,
+      personalidad: ['Juguetón', 'Activo', 'Bueno con chicos'],
+      requisitos: ['Disponibilidad para educar un cachorro', 'Control veterinario periódico'],
+      vacunas: 'Primera dosis aplicada',
+      descripcion:
+        'Rocco tiene siete meses y todavía está aprendiendo todo. Muerde lo que encuentra, se ' +
+        'emociona con cada visita y duerme profundo apenas se cansa. Necesita una familia con ' +
+        'paciencia para acompañarlo en el primer año, que es el que más trabajo da.',
+      fotos: [
+        'photo-1601979031925-424e53b6caaa',
+        'photo-1517423440428-a5a00ad493e8',
+        'photo-1543466835-00a7907e9de1',
+        'photo-1561037404-61cd46aa615b',
+        'photo-1568572933382-74d440642117',
+        'photo-1552053831-71594a27632d',
+      ],
+    },
+  ];
+
+  const hoy = new Date();
+  // Los cachorros se guardan con meses y no con años, para que caigan en el rango 0–1.
+  const cumpleHace = (anios: number) =>
+    anios === 0
+      ? new Date(hoy.getFullYear(), hoy.getMonth() - 7, hoy.getDate())
+      : new Date(hoy.getFullYear() - anios, hoy.getMonth(), hoy.getDate());
+
+  let creadas = 0;
+
+  for (const item of catalogo) {
+    const especie = await prisma.especie.findUniqueOrThrow({ where: { nombre: item.especie } });
+    const raza = await prisma.raza.findUniqueOrThrow({
+      where: { nombre_especieId: { nombre: item.raza, especieId: especie.id } },
+    });
+
+    const imagenes = item.fotos.map(foto);
+
+    let mascota = await prisma.mascota.findFirst({
+      where: { nombre: item.nombre, usuarioId: usuarioRefugio.id, fechaBaja: null },
+    });
+
+    if (!mascota) {
+      mascota = await prisma.mascota.create({
+        data: {
+          nombre: item.nombre,
+          fechaNacimiento: cumpleHace(item.anios),
+          genero: item.genero,
+          tamanio: item.tamanio,
+          castrado: item.castrada,
+          descripcion: item.descripcion,
+          imagenUrl: imagenes[0],
+          razaId: raza.id,
+          refugioId: usuarioRefugio.refugioId,
+          usuarioId: usuarioRefugio.id,
+          usuarioAlta,
+          historicoEstados: { create: { estadoMascotaId: disponible.id, usuarioAlta } },
+        },
+      });
+      creadas += 1;
+    }
+
+    const publicacion = await prisma.publicacion.findFirst({
+      where: { mascotaId: mascota.id, fechaBaja: null },
+    });
+
+    if (!publicacion) {
+      await prisma.publicacion.create({
+        data: {
+          titulo: `${item.nombre} busca hogar`,
+          descripcion: item.descripcion,
+          ubicacion: 'Mendoza',
+          requisitos: item.requisitos,
+          personalidad: item.personalidad,
+          desparasitado: true,
+          vacunas: item.vacunas,
+          imagenes,
+          imagenUrl: imagenes[0],
+          mascotaId: mascota.id,
+          usuarioId: usuarioRefugio.id,
+          usuarioAlta,
+        },
+      });
+    }
+  }
+
+  console.log(`🐾 Feed de adopción: ${catalogo.length} publicaciones (${creadas} mascotas nuevas)`);
+}
+
 async function main() {
   // 1) EstadoUsuario primero: Usuario.estadoId lo necesita como FK real.
   await seedEstadosUsuario(1);
@@ -383,6 +614,9 @@ async function main() {
 
   // 5) Datos de prueba de favoritos: dependen de las cuentas y de Especie/Raza/EstadoMascota.
   await seedFavoritosDePrueba(sistemaId);
+
+  // 6) Mascotas publicadas para el feed de adopción, que no están en favoritos.
+  await seedFeedDeAdopcion(sistemaId);
 
   console.log(`✅ Seed completo. Usuario SISTEMA id=${sistemaId}`);
 }
