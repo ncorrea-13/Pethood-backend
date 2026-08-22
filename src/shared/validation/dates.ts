@@ -49,6 +49,16 @@ export function esAnteriorAlAnioMinimo(
   return fecha.getFullYear() < anioMinimo;
 }
 
+/**
+ * Fecha de nacimiento que corresponde a alguien que hoy cumple exactamente `anios`.
+ * Sirve para traducir un filtro de edad a un rango de `fechaNacimiento`.
+ */
+export function restarAnios(anios: number, hoy: Date = new Date()): Date {
+  const copia = new Date(hoy);
+  copia.setFullYear(copia.getFullYear() - anios);
+  return copia;
+}
+
 /** Formatea a `AAAA-MM-DD` en hora local — `toISOString` corre el día según timezone. */
 export function aFechaISO(fecha: Date): string {
   const anio = fecha.getFullYear();
