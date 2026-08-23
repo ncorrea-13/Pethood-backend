@@ -173,7 +173,9 @@ async function seedUsuariosDePrueba(usuarioAlta: number, estadoActivoUsuarioId: 
 
   const contrasena = await bcrypt.hash('Pethood123', 10);
 
-  const rolAdministrador = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Administrador' } });
+  const rolAdministrador = await prisma.rol.findUniqueOrThrow({
+    where: { nombre: 'Administrador' },
+  });
   const rolAdoptante = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Adoptante' } });
   const rolRefugio = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Refugio' } });
   const estadoRefugioActivo = await prisma.estadoRefugio.findUniqueOrThrow({
