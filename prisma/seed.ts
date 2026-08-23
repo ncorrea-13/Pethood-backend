@@ -173,11 +173,30 @@ async function seedUsuariosDePrueba(usuarioAlta: number, estadoActivoUsuarioId: 
 
   const contrasena = await bcrypt.hash('Pethood123', 10);
 
+  const rolAdministrador = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Administrador' } });
   const rolAdoptante = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Adoptante' } });
   const rolRefugio = await prisma.rol.findUniqueOrThrow({ where: { nombre: 'Refugio' } });
   const estadoRefugioActivo = await prisma.estadoRefugio.findUniqueOrThrow({
     where: { nombre: 'Activo' },
   });
+
+  // Administrador global.
+  const admin = await prisma.usuario.upsert({
+    where: { email: 'admin@pethood.test' },
+    update: {},
+    create: {
+      nombre: 'Admin',
+      apellido: 'PetHood',
+      email: 'admin@pethood.test',
+      contrasena,
+      telefono: '2610000000',
+      dni: '20000000',
+      verificado: true,
+      estadoId: estadoActivoUsuarioId,
+      usuarioAlta,
+    },
+  });
+  await asignarRol(admin.id, rolAdministrador.id, usuarioAlta);
 
   // Adoptante particular.
   const adoptante = await prisma.usuario.upsert({
@@ -230,7 +249,9 @@ async function seedUsuariosDePrueba(usuarioAlta: number, estadoActivoUsuarioId: 
   });
   await asignarRol(usuarioRefugio.id, rolRefugio.id, usuarioAlta);
 
-  console.log('🔑 Cuentas de prueba: adoptante@pethood.test / refugio@pethood.test — Pethood123');
+  console.log(
+    '🔑 Cuentas de prueba: admin@pethood.test / adoptante@pethood.test / refugio@pethood.test — Pethood123',
+  );
 }
 
 /** RolUsuario no tiene índice único, así que el upsert se hace a mano. */
