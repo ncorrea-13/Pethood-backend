@@ -3,6 +3,7 @@ import { authRouter } from '../modules/auth/auth.routes';
 import { usuariosRouter } from '../modules/usuarios/usuarios.routes';
 import { catalogosRouter } from '../modules/catalogos/catalogos.routes';
 import { dashboardAdminRouter } from '../modules/dashboard-admin/dashboard-admin.routes';
+import { dashboardRefugioRouter } from '../modules/dashboard-refugio/dashboard-refugio.routes';
 import { favoritosRouter } from '../modules/favoritos/favoritos.routes';
 import { mascotasRouter } from '../modules/mascotas/mascotas.routes';
 import { publicacionesRouter } from '../modules/publicaciones/publicaciones.routes';
@@ -15,6 +16,7 @@ apiRouter.get('/health', (_req, res) => {
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', dashboardAdminRouter);
+apiRouter.use('/refugio', dashboardRefugioRouter);
 apiRouter.use('/usuarios', usuariosRouter);
 
 // Módulos (descomentar a medida que se implementan las specs):

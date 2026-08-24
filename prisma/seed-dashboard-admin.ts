@@ -1,9 +1,10 @@
-// Fixtures operativos para probar las agregaciones del dashboard admin (spec 009, Fase 12).
+// Fixtures operativos para probar las agregaciones del dashboard ADMIN (spec 009, Fase 12).
+// Para el dashboard de refugio ver prisma/seed-dashboard-refugio.ts (spec 010).
 //
 // Deliberadamente separado de seed.ts: este repo lo tocan varias personas y prisma.seed
 // (npx prisma db seed / migrate reset) corre seed.ts automáticamente para todos. Estos datos
 // son solo para desarrollar/probar el dashboard — no deben imponerse a quien está trabajando
-// otra fase. Se corre a mano, después de `npm run seed`: npx tsx prisma/seed-dashboard.ts
+// otra fase. Se corre a mano, después de `npm run seed`: npx tsx prisma/seed-dashboard-admin.ts
 //
 // Idempotente igual que seed.ts (findFirst + create) aunque Mascota/Solicitud/Campania no
 // tengan clave única natural para un upsert real.
@@ -14,7 +15,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   if (process.env.NODE_ENV === 'production') {
-    console.log('⏭️  NODE_ENV=production: seed-dashboard no corre (son datos de prueba).');
+    console.log('⏭️  NODE_ENV=production: seed-dashboard-admin no corre (son datos de prueba).');
     return;
   }
 
@@ -48,7 +49,7 @@ async function main() {
   await seedReportesProblema(usuarioAlta);
 
   console.log('🔑 Cuenta admin de prueba: admin@pethood.test — Pethood123');
-  console.log('✅ seed-dashboard completo.');
+  console.log('✅ seed-dashboard-admin completo.');
 }
 
 /** Cuenta admin de prueba para loguearse en el dashboard (cookie.sh, panel web-admin). */
@@ -170,7 +171,8 @@ async function seedSolicitudes(
     if (!solicitud) {
       solicitud = await prisma.solicitud.create({
         data: {
-          motivacion: 'Fixture de dashboard para probar agregaciones (seed-dashboard.ts).',
+          motivacion:
+            'Fixture de dashboard admin para probar agregaciones (seed-dashboard-admin.ts).',
           publicacionId,
           usuarioId,
           tipoSolicitudId,
@@ -203,7 +205,7 @@ async function seedCampaniasYDonaciones(usuarioAlta: number, refugioId: number, 
       campania = await prisma.campania.create({
         data: {
           titulo: def.titulo,
-          descripcion: 'Fixture de dashboard (seed-dashboard.ts).',
+          descripcion: 'Fixture de dashboard admin (seed-dashboard-admin.ts).',
           objetivo: 100000,
           fechaInicio: hoy,
           fechaFin: enUnMes,
@@ -258,7 +260,7 @@ async function seedReportesProblema(usuarioAlta: number) {
 
 main()
   .catch((err) => {
-    console.error('❌ Error corriendo seed-dashboard:', err);
+    console.error('❌ Error corriendo seed-dashboard-admin:', err);
     process.exit(1);
   })
   .finally(async () => {
