@@ -2,6 +2,7 @@
 import { LIMITES } from './limits';
 
 const SOLO_FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
+const SOLO_MES = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 /**
  * Parsea texto ISO o Date. Devuelve null si no es una fecha real.
@@ -65,6 +66,26 @@ export function aFechaISO(fecha: Date): string {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
   return `${anio}-${mes}-${dia}`;
+}
+
+/** Parsea un mes calendario "AAAA-MM" (formato de <input type="month">). Null si es inválido. */
+export function parsearMesISO(
+  valor: string | null | undefined,
+): { anio: number; mes: number } | null {
+  if (!valor) return null;
+  const partes = SOLO_MES.exec(valor);
+  if (!partes) return null;
+  return { anio: Number(partes[1]), mes: Number(partes[2]) };
+}
+
+/** Primer instante local del mes "AAAA-MM". */
+export function inicioDeMes(anio: number, mes: number): Date {
+  return new Date(anio, mes - 1, 1, 0, 0, 0, 0);
+}
+
+/** Último instante local del mes "AAAA-MM". */
+export function finDeMes(anio: number, mes: number): Date {
+  return new Date(anio, mes, 0, 23, 59, 59, 999);
 }
 
 export type ResultadoFecha = { valida: true; fecha: Date } | { valida: false; error: string };

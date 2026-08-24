@@ -10,7 +10,7 @@ Darle al administrador global una vista agregada del estado de la plataforma (us
 ## 2. Alcance
 
 - **Incluye:** HU-14.1 (dashboard estadístico global, rol Administrador), HU-14.3 (exportación CSV, alcance Administrador).
-- **NO incluye:** HU-14.2 (dashboard de gestión interna del Refugio — spec propia a futuro, mismo patrón de agregación pero scopeado a `refugioId`); moderación/verificación de refugios (Módulo 3 — spec 008, ver nota en spec 001); exportación desde el rol Refugio (queda para la spec de HU-14.2).
+- **NO incluye:** HU-14.2 (dashboard de gestión interna del Refugio — ver spec 010, mismo patrón de agregación pero scopeado a `refugioId`); moderación/verificación de refugios (Módulo 3 — spec 008, ver nota en spec 001); exportación desde el rol Refugio (queda para spec 010).
 
 ## 3. Entidades involucradas
 
@@ -106,9 +106,9 @@ No aplica a mobile.
 
 ## 9. Notas y decisiones
 
-- 2026-08-18 (ncorrea-13): se prioriza esta spec sobre el orden estricto del ROADMAP porque Fase 12 admite construirse en paralelo "sobre datos de prueba" mientras el resto avanza (ver ROADMAP.md Fase 12). Los fixtures operativos (Mascota, Publicacion, Solicitud, Campania, Donacion) para probar las agregaciones viven en `prisma/seed-dashboard.ts`, **separado de `prisma/seed.ts` a propósito**: el proyecto lo tocan varias personas y `prisma.seed` (`npx prisma db seed` / `migrate reset`) corre `seed.ts` automáticamente para todo el equipo — no corresponde imponerle datos de una feature en curso a quien está trabajando otra fase. `seed-dashboard.ts` no está enganchado a ningún hook ni script de `package.json`; se corre a mano, después de `npm run seed`:
+- 2026-08-18 (ncorrea-13): se prioriza esta spec sobre el orden estricto del ROADMAP porque Fase 12 admite construirse en paralelo "sobre datos de prueba" mientras el resto avanza (ver ROADMAP.md Fase 12). Los fixtures operativos (Mascota, Publicacion, Solicitud, Campania, Donacion) para probar las agregaciones viven en `prisma/seed-dashboard-admin.ts` (renombrado 2026-08-24, antes `seed-dashboard.ts`, para distinguirlo del análogo de refugio agregado en spec 010), **separado de `prisma/seed.ts` a propósito**: el proyecto lo tocan varias personas y `prisma.seed` (`npx prisma db seed` / `migrate reset`) corre `seed.ts` automáticamente para todo el equipo — no corresponde imponerle datos de una feature en curso a quien está trabajando otra fase. `seed-dashboard-admin.ts` no está enganchado a ningún hook ni script de `package.json`; se corre a mano, después de `npm run seed`:
   ```bash
-  npx tsx prisma/seed-dashboard.ts
+  npx tsx prisma/seed-dashboard-admin.ts
   ```
 - Gap de `Donacion` sin campo de confirmación: pendiente confirmar con el equipo si se resuelve en Módulo 12 (Fase 10) antes o después de esta spec. No se agrega el campo acá para no invadir el alcance de otra spec.
-- HU-14.2 (dashboard Refugio) queda fuera deliberadamente — mismo patrón, pero conviene una spec separada una vez que este contrato admin esté aprobado, para no acoplar ambas revisiones.
+- HU-14.2 (dashboard Refugio) queda fuera deliberadamente — resuelto en spec 010.
