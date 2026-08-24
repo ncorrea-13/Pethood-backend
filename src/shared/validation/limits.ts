@@ -28,6 +28,17 @@ export const LIMITES = {
     ubicacion: { max: 80 },
   },
 
+  refugio: {
+    nombre: { min: 2, max: 100 },
+    direccion: { min: 2, max: 150 },
+    descripcion: { max: 1000 },
+  },
+
+  /** Solo web-admin (spec 002) — no hay contraparte en la app mobile, no se mirrorea. */
+  admin: {
+    motivo: { min: 1, max: 500 },
+  },
+
   fecha: { anioMinimo: 1900 },
 
   imagen: {
