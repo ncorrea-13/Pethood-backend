@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from '../modules/auth/auth.routes';
+import { adminUsuariosRouter } from '../modules/admin-usuarios/admin-usuarios.routes';
 import { usuariosRouter } from '../modules/usuarios/usuarios.routes';
 import { catalogosRouter } from '../modules/catalogos/catalogos.routes';
 import { dashboardAdminRouter } from '../modules/dashboard-admin/dashboard-admin.routes';
@@ -15,6 +16,7 @@ apiRouter.get('/health', (_req, res) => {
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', dashboardAdminRouter);
+apiRouter.use('/admin', adminUsuariosRouter);
 apiRouter.use('/usuarios', usuariosRouter);
 
 // Módulos (descomentar a medida que se implementan las specs):
