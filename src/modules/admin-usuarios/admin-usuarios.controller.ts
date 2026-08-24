@@ -13,11 +13,19 @@ function idDeParametro(req: Request): number {
 
 // ─────────────── Usuarios ───────────────
 
-export async function listarUsuarios(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function listarUsuarios(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const resultado = filtrosUsuariosSchema.safeParse(req.query);
     if (!resultado.success) {
-      throw new AppError('VALIDACION', resultado.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+      throw new AppError(
+        'VALIDACION',
+        resultado.error.issues[0]?.message ?? 'Filtros inválidos',
+        400,
+      );
     }
     res.json(await service.listarUsuarios(resultado.data));
   } catch (err) {
@@ -25,7 +33,11 @@ export async function listarUsuarios(req: Request, res: Response, next: NextFunc
   }
 }
 
-export async function verificarUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function verificarUsuario(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const usuario = await service.verificarUsuario(req.usuario!.usuarioId, idDeParametro(req));
     res.json({ mensaje: 'Usuario verificado.', usuario });
@@ -34,17 +46,29 @@ export async function verificarUsuario(req: Request, res: Response, next: NextFu
   }
 }
 
-export async function suspenderUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function suspenderUsuario(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const { motivo } = req.body as MotivoBody;
-    const usuario = await service.suspenderUsuario(req.usuario!.usuarioId, idDeParametro(req), motivo);
+    const usuario = await service.suspenderUsuario(
+      req.usuario!.usuarioId,
+      idDeParametro(req),
+      motivo,
+    );
     res.json({ mensaje: 'Usuario suspendido.', usuario });
   } catch (err) {
     next(err);
   }
 }
 
-export async function reactivarUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function reactivarUsuario(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const usuario = await service.reactivarUsuario(req.usuario!.usuarioId, idDeParametro(req));
     res.json({ mensaje: 'Usuario reactivado.', usuario });
@@ -63,7 +87,11 @@ export async function bajaUsuario(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function gestionarRoles(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function gestionarRoles(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const resultado = await service.gestionarRoles(
       req.usuario!.usuarioId,
@@ -78,11 +106,19 @@ export async function gestionarRoles(req: Request, res: Response, next: NextFunc
 
 // ─────────────── Refugios ───────────────
 
-export async function listarRefugios(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function listarRefugios(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const resultado = filtrosRefugiosSchema.safeParse(req.query);
     if (!resultado.success) {
-      throw new AppError('VALIDACION', resultado.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+      throw new AppError(
+        'VALIDACION',
+        resultado.error.issues[0]?.message ?? 'Filtros inválidos',
+        400,
+      );
     }
     res.json(await service.listarRefugios(resultado.data));
   } catch (err) {
@@ -90,7 +126,11 @@ export async function listarRefugios(req: Request, res: Response, next: NextFunc
   }
 }
 
-export async function obtenerRefugio(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function obtenerRefugio(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     res.json(await service.obtenerDetalleRefugio(idDeParametro(req)));
   } catch (err) {
@@ -107,7 +147,11 @@ export async function altaRefugio(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function verificarRefugio(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function verificarRefugio(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const refugio = await service.verificarRefugio(req.usuario!.usuarioId, idDeParametro(req));
     res.json({ mensaje: 'Refugio verificado.', refugio });
@@ -116,17 +160,29 @@ export async function verificarRefugio(req: Request, res: Response, next: NextFu
   }
 }
 
-export async function suspenderRefugio(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function suspenderRefugio(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const { motivo } = req.body as MotivoBody;
-    const refugio = await service.suspenderRefugio(req.usuario!.usuarioId, idDeParametro(req), motivo);
+    const refugio = await service.suspenderRefugio(
+      req.usuario!.usuarioId,
+      idDeParametro(req),
+      motivo,
+    );
     res.json({ mensaje: 'Refugio suspendido.', refugio });
   } catch (err) {
     next(err);
   }
 }
 
-export async function reactivarRefugio(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function reactivarRefugio(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const refugio = await service.reactivarRefugio(req.usuario!.usuarioId, idDeParametro(req));
     res.json({ mensaje: 'Refugio reactivado.', refugio });

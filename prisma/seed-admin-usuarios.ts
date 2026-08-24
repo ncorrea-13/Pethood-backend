@@ -21,17 +21,47 @@ const CANTIDAD_REFUGIOS = 24;
 const CANTIDAD_ADOPTANTES = 24;
 
 const NOMBRES = [
-  'Lucía', 'Martín', 'Sofía', 'Diego', 'Camila', 'Javier', 'Valentina', 'Andrés',
-  'Micaela', 'Facundo', 'Julieta', 'Gonzalo', 'Rocío', 'Nicolás', 'Agustina', 'Emiliano',
+  'Lucía',
+  'Martín',
+  'Sofía',
+  'Diego',
+  'Camila',
+  'Javier',
+  'Valentina',
+  'Andrés',
+  'Micaela',
+  'Facundo',
+  'Julieta',
+  'Gonzalo',
+  'Rocío',
+  'Nicolás',
+  'Agustina',
+  'Emiliano',
 ];
 const APELLIDOS = [
-  'Fernández', 'Rodríguez', 'Sosa', 'Pereyra', 'Aguirre', 'Molina', 'Castro', 'Ortega',
+  'Fernández',
+  'Rodríguez',
+  'Sosa',
+  'Pereyra',
+  'Aguirre',
+  'Molina',
+  'Castro',
+  'Ortega',
 ];
 
 const PREFIJOS_REFUGIO = [
-  'Huellitas', 'Garritas', 'Colitas', 'Amigos de Cuatro Patas', 'El Hogar de Tomás',
-  'Vida Animal', 'Segunda Oportunidad', 'Corazón Mendoza', 'La Casita de Fierro',
-  'Puertas Abiertas', 'Manada Feliz', 'Despertar Animal',
+  'Huellitas',
+  'Garritas',
+  'Colitas',
+  'Amigos de Cuatro Patas',
+  'El Hogar de Tomás',
+  'Vida Animal',
+  'Segunda Oportunidad',
+  'Corazón Mendoza',
+  'La Casita de Fierro',
+  'Puertas Abiertas',
+  'Manada Feliz',
+  'Despertar Animal',
 ];
 const LOCALIDADES_REFUGIO = ['Mendoza', 'Maipú', 'Luján de Cuyo', 'Godoy Cruz'];
 

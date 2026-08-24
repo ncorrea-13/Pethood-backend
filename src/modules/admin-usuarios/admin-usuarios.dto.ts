@@ -46,7 +46,12 @@ export const filtrosUsuariosSchema = z.object({
 
 export type FiltrosUsuarios = z.infer<typeof filtrosUsuariosSchema>;
 
-export const ESTADOS_REFUGIO = ['Pendiente_Verificacion', 'Activo', 'Suspendido', 'Inactivo'] as const;
+export const ESTADOS_REFUGIO = [
+  'Pendiente_Verificacion',
+  'Activo',
+  'Suspendido',
+  'Inactivo',
+] as const;
 
 export const filtrosRefugiosSchema = z.object({
   q: z.string().trim().min(1).optional(),
@@ -69,8 +74,12 @@ export type MotivoBody = z.infer<typeof motivoBodySchema>;
  */
 export const rolesBodySchema = z
   .object({
-    agregar: z.array(z.enum([ROL_API.ADOPTANTE, ROL_API.MIEMBRO_REFUGIO, ROL_API.ADMIN])).default([]),
-    quitar: z.array(z.enum([ROL_API.ADOPTANTE, ROL_API.MIEMBRO_REFUGIO, ROL_API.ADMIN])).default([]),
+    agregar: z
+      .array(z.enum([ROL_API.ADOPTANTE, ROL_API.MIEMBRO_REFUGIO, ROL_API.ADMIN]))
+      .default([]),
+    quitar: z
+      .array(z.enum([ROL_API.ADOPTANTE, ROL_API.MIEMBRO_REFUGIO, ROL_API.ADMIN]))
+      .default([]),
     refugioId: idSchema('El refugio').optional(),
   })
   .refine((body) => body.agregar.length > 0 || body.quitar.length > 0, {
@@ -79,9 +88,12 @@ export const rolesBodySchema = z
   .refine((body) => !body.agregar.some((rol) => body.quitar.includes(rol)), {
     message: 'Un rol no puede agregarse y quitarse a la vez.',
   })
-  .refine((body) => !body.agregar.includes(ROL_API.MIEMBRO_REFUGIO) || body.refugioId !== undefined, {
-    message: 'Para agregar el rol de refugio indicá a qué refugio pertenece.',
-  });
+  .refine(
+    (body) => !body.agregar.includes(ROL_API.MIEMBRO_REFUGIO) || body.refugioId !== undefined,
+    {
+      message: 'Para agregar el rol de refugio indicá a qué refugio pertenece.',
+    },
+  );
 
 export type RolesBody = z.infer<typeof rolesBodySchema>;
 

@@ -128,11 +128,7 @@ export async function suspenderUsuario(adminId: number, usuarioId: number, motiv
   }
 
   if (usuario.estado.nombre !== ESTADO_USUARIO.ACTIVO) {
-    throw new AppError(
-      'ESTADO_INVALIDO',
-      'Solo se puede suspender a un usuario activo.',
-      409,
-    );
+    throw new AppError('ESTADO_INVALIDO', 'Solo se puede suspender a un usuario activo.', 409);
   }
 
   const estadoSuspendido = await repo.buscarEstadoUsuarioPorNombre(ESTADO_USUARIO.SUSPENDIDO);
@@ -252,7 +248,10 @@ export async function gestionarRoles(adminId: number, usuarioId: number, body: R
   });
 
   const actualizado = await buscarUsuarioOFallar(usuarioId);
-  return { mensaje: 'Roles actualizados.', roles: rolesDbAApi(actualizado.roles.map((v) => v.rol.nombre)) };
+  return {
+    mensaje: 'Roles actualizados.',
+    roles: rolesDbAApi(actualizado.roles.map((v) => v.rol.nombre)),
+  };
 }
 
 // ─────────────── Refugios ───────────────

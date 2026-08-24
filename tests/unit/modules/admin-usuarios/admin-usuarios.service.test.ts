@@ -118,9 +118,7 @@ describe('verificarUsuario', () => {
   });
 
   it('rechaza con DATOS_INCOMPLETOS si falta dni o telefono', async () => {
-    mockedRepo.buscarUsuario.mockResolvedValue(
-      usuarioFake({ dni: null, estado: estadoPendiente }),
-    );
+    mockedRepo.buscarUsuario.mockResolvedValue(usuarioFake({ dni: null, estado: estadoPendiente }));
 
     await expect(service.verificarUsuario(1, 5)).rejects.toMatchObject({
       codigo: 'DATOS_INCOMPLETOS',
@@ -164,7 +162,11 @@ describe('gestionarRoles — último administrador', () => {
     mockedRepo.contarUsuariosActivosConRol.mockResolvedValue(0);
 
     await expect(
-      service.gestionarRoles(2, 5, { agregar: [], quitar: ['ADMIN'], refugioId: undefined } as never),
+      service.gestionarRoles(2, 5, {
+        agregar: [],
+        quitar: ['ADMIN'],
+        refugioId: undefined,
+      } as never),
     ).rejects.toMatchObject({ codigo: 'ULTIMO_ADMINISTRADOR' });
 
     expect(mockedRepo.quitarRol).not.toHaveBeenCalled();

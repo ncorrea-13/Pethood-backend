@@ -4,11 +4,7 @@ import { requiereRol } from '../../middlewares/roles';
 import { validar } from '../../middlewares/validar';
 import { ROL_API } from '../../shared/roles';
 import * as controller from './admin-usuarios.controller';
-import {
-  altaRefugioBodySchema,
-  motivoBodySchema,
-  rolesBodySchema,
-} from './admin-usuarios.dto';
+import { altaRefugioBodySchema, motivoBodySchema, rolesBodySchema } from './admin-usuarios.dto';
 
 export const adminUsuariosRouter = Router();
 
@@ -23,7 +19,11 @@ adminUsuariosRouter.patch(
 );
 adminUsuariosRouter.patch('/usuarios/:id/reactivar', controller.reactivarUsuario);
 adminUsuariosRouter.patch('/usuarios/:id/baja', validar(motivoBodySchema), controller.bajaUsuario);
-adminUsuariosRouter.patch('/usuarios/:id/roles', validar(rolesBodySchema), controller.gestionarRoles);
+adminUsuariosRouter.patch(
+  '/usuarios/:id/roles',
+  validar(rolesBodySchema),
+  controller.gestionarRoles,
+);
 
 adminUsuariosRouter.post('/refugios', validar(altaRefugioBodySchema), controller.altaRefugio);
 adminUsuariosRouter.get('/refugios', controller.listarRefugios);

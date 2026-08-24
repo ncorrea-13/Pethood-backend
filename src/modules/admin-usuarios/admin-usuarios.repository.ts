@@ -238,7 +238,13 @@ export async function resumenRefugio(refugioId: number) {
 }
 
 export function crearRefugio(
-  datos: { nombre: string; direccion: string; telefono?: string; email?: string; descripcion: string | null },
+  datos: {
+    nombre: string;
+    direccion: string;
+    telefono?: string;
+    email?: string;
+    descripcion: string | null;
+  },
   estadoPendienteId: number,
   adminId: number,
 ) {
