@@ -1,6 +1,6 @@
 # Spec 002 — Administración de Usuarios y Refugios (web-admin)
 
-**Estado:** BORRADOR
+**Estado:** LISTO
 **Fase:** 1 (Identidad y usuarios, Módulos 1 y 2 — ROADMAP.md) · **Responsable:** ncorrea-13 · **Última actualización:** 2026-08-24
 
 ## 1. Objetivo
@@ -68,7 +68,7 @@ body { "nombre": "Refugio Patitas", "direccion": "Av. San Martin 1234",
 → 201 — crea con estado `Pendiente_Verificacion` y verificado=false
 ```
 
-Errores por endpoint: `404 *_NO_ENCONTRADO`; transición de estado inválida → `409 ESTADO_INVALIDO` / `USUARIO_YA_SUSPENDIDO` / `USUARIO_YA_VERIFICADO` / `REFUGIO_YA_*`; `403 NO_SE_PUEDE_SUSPENDER_ADMIN` (también aplica a baja); `409 ULTIMO_ADMINISTRADOR` (roles); `409 DATOS_INCOMPLETOS` (verificar usuario sin dni/teléfono); `400 VALIDACION` (motivo vacío, body inválido, paginación inválida).
+Errores por endpoint: `404 *_NO_ENCONTRADO`; transición de estado inválida → `409 ESTADO_INVALIDO` / `USUARIO_YA_SUSPENDIDO` / `USUARIO_YA_VERIFICADO` / `REFUGIO_YA_*`; `403 NO_SE_PUEDE_SUSPENDER_ADMIN` (también aplica a baja); `403 NO_SE_PUEDE_EDITAR_ADMIN` (roles, incluye auto-edición); `409 ULTIMO_ADMINISTRADOR` (roles); `409 DATOS_INCOMPLETOS` (verificar usuario sin dni/teléfono); `400 VALIDACION` (motivo vacío, body inválido, paginación inválida).
 
 ## 5. Pantallas (frontend — solo web-admin)
 
@@ -108,7 +108,8 @@ Contrato visual completo en API.ADMIN.md. El backend valida todo; el frontend so
 - [ ] Given usuario `Activo`, When suspendo con motivo, Then estado `Suspendido` y su próximo login falla con 403.
 - [ ] Given usuario `Suspendido`, When reactivo, Then vuelve a `Activo` y puede loguear.
 - [ ] Given usuario con rol ADMIN, When intento suspenderlo/bajarlo/quitarle roles, Then `403`/`409` según corresponda, nunca se ejecuta.
-- [ ] Given soy el único ADMIN del sistema, When otro admin me quita el rol… (inaplicable: nadie puede) — Given existe un solo admin activo y se intenta quitarle ADMIN vía edición de OTRO usuario que es admin, Then ok; si quedara cero, `409 ULTIMO_ADMINISTRADOR`.
+- [ ] Given existe un solo administrador activo, When otro admin le quita el rol ADMIN a ese usuario, Then `409 ULTIMO_ADMINISTRADOR` y el rol no se modifica.
+- [ ] Given un admin intenta modificar sus propios roles (auto-edición), Then `403 NO_SE_PUEDE_EDITAR_ADMIN`, sin importar si quedan otros admins.
 - [ ] Given usuario cualquiera, When doy de baja con motivo, Then `fechaBaja`/`usuarioBaja` seteados, estado `Inactivo`, login rechazado, y desaparece de listados con filtro default.
 - [ ] Given refugio `Pendiente_Verificacion`, When verifico, Then `Activo` + `verificado=true`.
 - [ ] Given refugio creado por POST, When consulto su detalle, Then figura en `Pendiente_Verificacion` con verificado=false.
