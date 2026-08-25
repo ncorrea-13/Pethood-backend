@@ -19,11 +19,7 @@ historiaClinicaRouter.post(
   controller.crear,
 );
 
-historiaClinicaRouter.get(
-  '/mascotas/:mascotaId/historias-clinicas',
-  autenticar,
-  controller.listar,
-);
+historiaClinicaRouter.get('/mascotas/:mascotaId/historias-clinicas', autenticar, controller.listar);
 
 historiaClinicaRouter.get('/historias-clinicas/:id', autenticar, controller.obtener);
 

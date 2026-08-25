@@ -43,7 +43,10 @@ describe('crearHistoriaClinicaSchema — obligatorios', () => {
   });
 
   it('rechaza una fecha de visita futura', () => {
-    const resultado = crearHistoriaClinicaSchema.safeParse({ ...DATOS_BASE, fechaVisita: mañana() });
+    const resultado = crearHistoriaClinicaSchema.safeParse({
+      ...DATOS_BASE,
+      fechaVisita: mañana(),
+    });
     expect(resultado.success).toBe(false);
   });
 

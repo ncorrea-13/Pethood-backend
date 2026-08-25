@@ -48,7 +48,11 @@ function tieneAcceso(mascota: Mascota, usuario: Usuario): boolean {
  * integrante del refugio dueño puede gestionar cualquier registro de esa mascota; un
  * adoptante solo el que él mismo cargó.
  */
-function puedeGestionar(mascota: Mascota, usuario: Usuario, registro: { usuarioAlta: number }): boolean {
+function puedeGestionar(
+  mascota: Mascota,
+  usuario: Usuario,
+  registro: { usuarioAlta: number },
+): boolean {
   if (usuario.refugioId !== null && usuario.refugioId === mascota.refugioId) return true;
   return mascota.usuarioId === usuario.id && registro.usuarioAlta === usuario.id;
 }
