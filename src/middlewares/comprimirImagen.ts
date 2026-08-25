@@ -14,7 +14,11 @@ const FORMATO_POR_MIME: Record<string, 'jpeg' | 'png' | 'webp'> = {
 };
 
 async function comprimir(archivo: Express.Multer.File): Promise<void> {
-  const formato = FORMATO_POR_MIME[archivo.mimetype] ?? 'jpeg';
+  const formato = FORMATO_POR_MIME[archivo.mimetype];
+
+  // No es una imagen conocida (ej. el pdf de un comprobante de historia clínica): se deja
+  // el buffer tal cual, sharp no sabe reformatear eso.
+  if (!formato) return;
 
   const comprimida = await sharp(archivo.buffer)
     .resize({ width: ANCHO_MAXIMO_PX, withoutEnlargement: true })

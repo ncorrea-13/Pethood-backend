@@ -19,7 +19,7 @@ Cada módulo tiene una spec numerada que se escribe y aprueba ANTES de codificar
 | 002 | Publicación de Mascotas | 2 | pendiente |
 | 003 | Adopción y Favoritos | 3 | pendiente |
 | 004 | Chat y Notificaciones | 4 | pendiente |
-| 005 | Historia Clínica y Seguimiento | 5 | pendiente |
+| 005 | Historia Clínica (HU-8.1 a HU-8.4) | 5 | APROBADA |
 | 006 | Hogares de Tránsito y Reputación | 6 | pendiente |
 | 007 | Campañas, Padrinazgos y Perdidos | 7 | pendiente |
 | 008 | Panel Admin y Moderación | 8 | pendiente |

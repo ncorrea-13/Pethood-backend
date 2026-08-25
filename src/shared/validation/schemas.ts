@@ -5,7 +5,7 @@
  * coerciona en vez de confiar en el tipo que mande el cliente.
  */
 import { z } from 'zod';
-import { validarFechaPasada } from './dates';
+import { validarFechaFutura, validarFechaPasada } from './dates';
 import { parsearDecimal } from './numbers';
 import { validarTexto } from './text';
 
@@ -39,6 +39,36 @@ export function textoOpcionalSchema(opciones: { max: number; etiqueta: string })
 export function fechaPasadaSchema(etiqueta: string) {
   return z.unknown().transform((valor, ctx) => {
     const resultado = validarFechaPasada(valor as string | Date, etiqueta);
+
+    if (!resultado.valida) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: resultado.error });
+      return z.NEVER;
+    }
+
+    return resultado.fecha;
+  });
+}
+
+/** Fecha estrictamente futura y obligatoria (ej. próximo control). */
+export function fechaFuturaSchema(etiqueta: string) {
+  return z.unknown().transform((valor, ctx) => {
+    const resultado = validarFechaFutura(valor as string | Date, etiqueta);
+
+    if (!resultado.valida) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: resultado.error });
+      return z.NEVER;
+    }
+
+    return resultado.fecha;
+  });
+}
+
+/** Igual que `fechaFuturaSchema`, pero vacío/ausente se acepta y devuelve null. */
+export function fechaFuturaOpcionalSchema(etiqueta: string) {
+  return z.unknown().transform((valor, ctx) => {
+    if (valor === undefined || valor === null || valor === '') return null;
+
+    const resultado = validarFechaFutura(valor as string | Date, etiqueta);
 
     if (!resultado.valida) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: resultado.error });

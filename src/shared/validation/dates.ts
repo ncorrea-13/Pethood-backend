@@ -108,3 +108,16 @@ export function validarFechaPasada(
 
   return { valida: true, fecha };
 }
+
+/** Fecha de algo que todavía no pasó (próximo control): existente y estrictamente futura. */
+export function validarFechaFutura(
+  valor: string | Date | null | undefined,
+  etiqueta: string,
+): ResultadoFecha {
+  const fecha = parsearFecha(valor);
+
+  if (!fecha) return { valida: false, error: `${etiqueta} no es válida` };
+  if (!esFutura(fecha)) return { valida: false, error: `${etiqueta} debe ser posterior a hoy` };
+
+  return { valida: true, fecha };
+}

@@ -45,4 +45,16 @@ export const LIMITES = {
     tamanioMaximoBytes: 5 * 1024 * 1024,
     formatos: ['image/jpeg', 'image/png', 'image/webp'],
   },
+
+  /** Comprobante de historia clínica: además de imagen, admite pdf (REQUISITOS.md §4). */
+  documento: {
+    tamanioMaximoBytes: 5 * 1024 * 1024,
+    formatos: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+  },
+
+  /** Sin spec de diseño que fije el número exacto todavía — valores conservadores. */
+  historiaClinica: {
+    titulo: { min: 1, max: 100 },
+    descripcion: { min: 1, max: 1000 },
+  },
 } as const;
