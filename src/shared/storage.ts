@@ -14,6 +14,7 @@ const EXTENSION_POR_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
+  'application/pdf': 'pdf',
 };
 
 /** Guarda la imagen (ya comprimida) y devuelve la URL pública que se persiste en base. */
