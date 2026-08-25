@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo.png" alt="PetHood Logo" width="200" />
 
-# PetHood Backend
+# PetHood Server
 
 **API REST para adopción responsable y rescate animal**
 
@@ -185,7 +185,7 @@ npm test             # Ejecutar tests
 
 ## Equipo
 
-Proyecto académico - **UTN Regional Mendoza**, Ingeniería en Sistemas, Grupo N°09.
+Proyecto académico - **UTN Regional Mendoza**, Ingeniería en Sistemas.
 
 - Camila Fabián
 - Agustín Leyes
