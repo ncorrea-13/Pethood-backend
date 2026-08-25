@@ -21,11 +21,19 @@ datasource db {
 }
 
 // ─────────────── ENUMS ───────────────
-// Único enum real: selector cerrado de 2 valores explícito en HU-6.1, no modelado como catálogo.
+// Selectores de valores fijos, no modelados como catálogo porque no son configurables
+// desde el panel admin. Sin tildes ni ñ en los identificadores (CONSTITUTION.md §5) —
+// la UI muestra las etiquetas en español correcto.
 
 enum GeneroMascota {
   MACHO
   HEMBRA
+}
+
+enum TamanioMascota {
+  PEQUENO
+  MEDIANO
+  GRANDE
 }
 
 // ─────────────── CATÁLOGOS ───────────────
@@ -207,17 +215,23 @@ model Rol {
 // ─────────────── USUARIOS ───────────────
 
 model Usuario {
-  id         Int     @id @default(autoincrement()) @map("usuario_id")
-  nombre     String  @map("usuario_nombre")
-  apellido   String  @map("usuario_apellido")
-  email      String  @unique @map("usuario_email")
-  contrasena String  @map("usuario_contrasena")
-  telefono   String? @map("usuario_telefono")
-  dni        String  @unique @map("usuario_dni")
-  verificado Boolean @default(false) @map("usuario_verificado")
-  imagenUrl  String? @map("usuario_imagen_url")
-  refugioId  Int?    @map("refugio_id")
-  estadoId   Int     @map("estado_id")
+  id               Int       @id @default(autoincrement()) @map("usuario_id")
+  nombre           String    @map("usuario_nombre")
+  apellido         String    @map("usuario_apellido")
+  email            String    @unique @map("usuario_email")
+  // Nullable: las cuentas creadas solo con Google no tienen contraseña local.
+  contrasena       String?   @map("usuario_contrasena")
+  telefono         String?   @map("usuario_telefono")
+  // Nullable: el registro mobile actual no pide DNI; Google OAuth tampoco.
+  dni              String?   @unique @map("usuario_dni")
+  fechaNacimiento  DateTime? @map("usuario_fecha_nacimiento")
+  googleId         String?   @unique @map("usuario_google_id")
+  verificado       Boolean   @default(false) @map("usuario_verificado")
+  imagenUrl        String?   @map("usuario_imagen_url")
+  // Barrio / ciudad del perfil (GUI-15). Nullable para cuentas nuevas o de Google.
+  ubicacion        String?   @map("usuario_ubicacion")
+  refugioId        Int?      @map("refugio_id")
+  estadoId         Int       @map("estado_id")
 
   usuarioAlta         Int       @map("usuario_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("usuario_fecha_alta")
@@ -298,17 +312,25 @@ model Refugio {
 
 // ─────────────── MASCOTAS ───────────────
 
+// `peso` y `tamanio` no vienen del diagrama de clases original — se agregaron porque el
+// formulario de alta los pide. Ver MODELO_DATOS.md.
+//
+// Nullables en base igual que `nombre` y `fechaNacimiento`: la obligatoriedad se impone en
+// mascotas.dto.ts, no en la columna, para no bloquear altas desde otros flujos (ej. un
+// animal encontrado del que no se conocen todos los datos).
 model Mascota {
-  id              Int           @id @default(autoincrement()) @map("mascota_id")
-  nombre          String?       @map("mascota_nombre")
-  fechaNacimiento DateTime?     @map("mascota_fecha_nacimiento")
-  genero          GeneroMascota @map("mascota_genero")
-  castrado        Boolean       @default(false) @map("mascota_castrado")
-  descripcion     String?       @map("mascota_descripcion")
-  imagenUrl       String?       @map("mascota_imagen_url")
-  razaId          Int           @map("raza_id")
-  refugioId       Int?          @map("refugio_id")
-  usuarioId       Int           @map("usuario_id")
+  id              Int             @id @default(autoincrement()) @map("mascota_id")
+  nombre          String?         @map("mascota_nombre")
+  fechaNacimiento DateTime?       @map("mascota_fecha_nacimiento")
+  genero          GeneroMascota   @map("mascota_genero")
+  peso            Decimal?        @map("mascota_peso") @db.Decimal(4, 1)
+  tamanio         TamanioMascota? @map("mascota_tamanio")
+  castrado        Boolean         @default(false) @map("mascota_castrado")
+  descripcion     String?         @map("mascota_descripcion")
+  imagenUrl       String?         @map("mascota_imagen_url")
+  razaId          Int             @map("raza_id")
+  refugioId       Int?            @map("refugio_id")
+  usuarioId       Int             @map("usuario_id")
 
   usuarioAlta         Int       @map("mascota_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("mascota_fecha_alta")
@@ -350,13 +372,26 @@ model MascotaEstado {
 
 // ─────────────── PUBLICACIONES ───────────────
 
+// Varios campos de acá no están en el diagrama de clases (ver MODELO_DATOS.md). Los text[]
+// se usan para listas de valores simples, sin atributos ni ciclo de vida propio, donde no
+// se justifica una tabla hija.
+//
+// `imagenes` guarda hasta 5 fotos y el orden del array ES el orden de la galería: la
+// primera es la portada. `imagenUrl` se mantiene con esa portada, para no romper lo que ya
+// lee ese campo.
 model Publicacion {
-  id          Int     @id @default(autoincrement()) @map("publicacion_id")
-  titulo      String  @map("publicacion_titulo")
-  descripcion String? @map("publicacion_descripcion")
-  imagenUrl   String? @map("publicacion_imagen_url")
-  mascotaId   Int     @map("mascota_id")
-  usuarioId   Int     @map("usuario_id")
+  id            Int      @id @default(autoincrement()) @map("publicacion_id")
+  titulo        String   @map("publicacion_titulo")
+  descripcion   String?  @map("publicacion_descripcion")
+  ubicacion     String?  @map("publicacion_ubicacion")
+  requisitos    String[] @map("publicacion_requisitos")
+  personalidad  String[] @map("publicacion_personalidad")
+  desparasitado Boolean  @default(false) @map("publicacion_desparasitado")
+  vacunas       String?  @map("publicacion_vacunas")
+  imagenes      String[] @map("publicacion_imagenes")
+  imagenUrl     String?  @map("publicacion_imagen_url")
+  mascotaId     Int      @map("mascota_id")
+  usuarioId     Int      @map("usuario_id")
 
   usuarioAlta         Int       @map("publicacion_usuario_alta")
   fechaAlta           DateTime  @default(now()) @map("publicacion_fecha_alta")
@@ -373,6 +408,16 @@ model Publicacion {
   @@map("publicacion")
 }
 
+// Además del índice de abajo, la tabla tiene dos índices PARCIALES que Prisma no sabe
+// expresar y viven en `migrations/20260820120000_favorito_indices_parciales`:
+//
+// - `favorito_usuario_mascota_activo_uq` — único (usuario, mascota) WHERE fecha_baja IS NULL.
+//   Garantiza un solo favorito activo por par sin impedir volver a guardar algo que se quitó.
+// - `favorito_usuario_fecha_alta_idx` — (usuario, fecha_alta DESC) WHERE fecha_baja IS NULL,
+//   para el orden por defecto de HU-6.6.
+//
+// Quitar un favorito es baja lógica (regla 1 de CLAUDE.md): cada ciclo de guardar/quitar
+// deja su propia fila, así que el par (usuario, mascota) puede repetirse en el histórico.
 model Favorito {
   id        Int @id @default(autoincrement()) @map("favorito_id")
   usuarioId Int @map("usuario_id")
