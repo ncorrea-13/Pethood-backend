@@ -1,11 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { z } from 'zod';
 import { AppError } from '../../middlewares/errorHandler';
+import { ROL_API } from '../../shared/roles';
 import { parsearId } from '../../shared/validation/numbers';
 import { crearMascotaSchema, editarMascotaSchema } from './mascotas.dto';
 import * as service from './mascotas.service';
-
-const ROL_REFUGIO = 'Refugio';
 
 /** Traduce el primer issue de Zod al formato de error de la API. */
 function parsearOFallar<T extends z.ZodTypeAny>(schema: T, datos: unknown): z.infer<T> {
@@ -38,7 +37,7 @@ function idDeRuta(req: Request): number {
 export async function crear(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const roles = req.usuario?.roles ?? [];
-    const actor = roles.includes(ROL_REFUGIO) ? 'REFUGIO' : 'ADOPTANTE';
+    const actor = roles.includes(ROL_API.MIEMBRO_REFUGIO) ? 'REFUGIO' : 'ADOPTANTE';
 
     const mascota = await service.crearMascota(
       parsearOFallar(crearMascotaSchema, { ...req.body, actor }),
