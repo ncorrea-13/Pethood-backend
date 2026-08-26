@@ -140,10 +140,19 @@ export function existePublicacionQueUsaImagen(imagenUrl: string) {
   });
 }
 
-/** Mascotas activas de un usuario, con su estado vigente. */
-export function listarPorUsuario(usuarioId: number) {
+/**
+ * Mascotas activas de un ámbito, con su estado vigente.
+ *
+ * Son dos conjuntos distintos y no uno filtrado:
+ * - personales: las que el usuario cargó a título propio (`refugioId` nulo).
+ * - del refugio: todas las del refugio, sin importar qué miembro las cargó. Por eso no
+ *   lleva `usuarioId` — si lo llevara, cada miembro vería solo las suyas.
+ */
+export function listarPorAmbito(ambito: { usuarioId: number } | { refugioId: number }) {
+  const where = 'refugioId' in ambito ? { refugioId: ambito.refugioId } : { ...ambito, refugioId: null };
+
   return prisma.mascota.findMany({
-    where: { usuarioId, fechaBaja: null },
+    where: { ...where, fechaBaja: null },
     include: {
       raza: { include: { especie: true } },
       historicoEstados: {

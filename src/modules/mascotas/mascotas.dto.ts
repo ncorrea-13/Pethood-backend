@@ -18,6 +18,19 @@ export const GENEROS = ['MACHO', 'HEMBRA'] as const;
 /** Un adoptante indica si registra una mascota propia o si la ofrece en adopción. */
 export const DESTINOS = ['PROPIA', 'ADOPCION'] as const;
 
+/**
+ * Qué conjunto de mascotas se pide en el listado. Un miembro de refugio tiene los dos:
+ * las que cargó a título personal y las del refugio al que pertenece.
+ */
+export const AMBITOS_MASCOTAS = ['PERSONAL', 'REFUGIO'] as const;
+export type AmbitoMascotas = (typeof AMBITOS_MASCOTAS)[number];
+
+/** Llega por query string, así que es opcional: sin dato, el ámbito personal. */
+export const ambitoMascotasSchema = z
+  .enum(AMBITOS_MASCOTAS, { errorMap: () => ({ message: 'El ámbito no es válido' }) })
+  .optional()
+  .default('PERSONAL');
+
 /** Llega como texto desde un form multipart: 'true'/'false' además de booleano. */
 const booleanoSchema = z
   .union([z.boolean(), z.string()])

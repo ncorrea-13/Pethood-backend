@@ -3,7 +3,7 @@ import type { z } from 'zod';
 import { AppError } from '../../middlewares/errorHandler';
 import { ROL_API } from '../../shared/roles';
 import { parsearId } from '../../shared/validation/numbers';
-import { crearMascotaSchema, editarMascotaSchema } from './mascotas.dto';
+import { ambitoMascotasSchema, crearMascotaSchema, editarMascotaSchema } from './mascotas.dto';
 import * as service from './mascotas.service';
 
 /** Traduce el primer issue de Zod al formato de error de la API. */
@@ -76,7 +76,8 @@ export async function eliminar(req: Request, res: Response, next: NextFunction):
 
 export async function listarMias(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    res.json(await service.listarMisMascotas(req.usuario!.usuarioId));
+    const ambito = parsearOFallar(ambitoMascotasSchema, req.query.ambito);
+    res.json(await service.listarMisMascotas(req.usuario!.usuarioId, ambito));
   } catch (err) {
     next(err);
   }
