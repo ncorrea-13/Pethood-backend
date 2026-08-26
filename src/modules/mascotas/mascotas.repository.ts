@@ -149,7 +149,8 @@ export function existePublicacionQueUsaImagen(imagenUrl: string) {
  *   lleva `usuarioId` — si lo llevara, cada miembro vería solo las suyas.
  */
 export function listarPorAmbito(ambito: { usuarioId: number } | { refugioId: number }) {
-  const where = 'refugioId' in ambito ? { refugioId: ambito.refugioId } : { ...ambito, refugioId: null };
+  const where =
+    'refugioId' in ambito ? { refugioId: ambito.refugioId } : { ...ambito, refugioId: null };
 
   return prisma.mascota.findMany({
     where: { ...where, fechaBaja: null },
