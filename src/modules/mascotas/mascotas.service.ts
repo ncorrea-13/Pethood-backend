@@ -6,7 +6,12 @@ import {
   ESTADOS_QUE_HABILITAN_PUBLICACION,
   ESTADOS_SELECCIONABLES_EN_ALTA,
 } from '../catalogos/catalogos.service';
-import type { CrearMascotaDto, EditarMascotaDto, MascotaCreadaDto } from './mascotas.dto';
+import type {
+  AmbitoMascotas,
+  CrearMascotaDto,
+  EditarMascotaDto,
+  MascotaCreadaDto,
+} from './mascotas.dto';
 import * as repo from './mascotas.repository';
 
 const SUBCARPETA_FOTOS = 'mascotas';
@@ -306,8 +311,36 @@ export async function eliminarMascota(
   return { id: mascotaId, publicacionesDadasDeBaja };
 }
 
-export async function listarMisMascotas(usuarioId: number): Promise<MascotaCreadaDto[]> {
-  const mascotas = await repo.listarPorUsuario(usuarioId);
+/**
+ * Listado de mascotas del ámbito pedido.
+ *
+ * Un miembro de refugio tiene dos conjuntos separados: las mascotas que cargó como
+ * persona y las del refugio. El cliente elige cuál quiere con `ambito`; sin ese dato se
+ * devuelven las personales, que es lo que ve un adoptante común.
+ *
+ * Pedir el ámbito del refugio sin pertenecer a uno es un error y no una lista vacía: la
+ * app no debería llegar a preguntarlo, y devolver vacío escondería el bug.
+ */
+export async function listarMisMascotas(
+  usuarioId: number,
+  ambito: AmbitoMascotas = 'PERSONAL',
+): Promise<MascotaCreadaDto[]> {
+  let filtro: { usuarioId: number } | { refugioId: number } = { usuarioId };
+
+  if (ambito === 'REFUGIO') {
+    const usuario = await repo.buscarUsuario(usuarioId);
+
+    if (!usuario) {
+      throw new AppError('NO_ENCONTRADO', 'El usuario no existe', 404);
+    }
+    if (!usuario.refugioId) {
+      throw new AppError('SIN_REFUGIO', 'Tu usuario no está asociado a ningún refugio', 403);
+    }
+
+    filtro = { refugioId: usuario.refugioId };
+  }
+
+  const mascotas = await repo.listarPorAmbito(filtro);
 
   return mascotas
     .filter((mascota) => mascota.historicoEstados.length > 0)
