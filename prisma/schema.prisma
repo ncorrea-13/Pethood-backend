@@ -579,6 +579,17 @@ model Resena {
 // ─────────────── CHAT ───────────────
 // Chat: "alta y baja" explícito en la nota de Mensaje (cita textual del doc de requisitos)
 // — sin par de modificación propio, igual que Mascota_Estado.
+//
+// `refugioId` NO reemplaza a UsuarioChat, lo complementa (HU-5.1, docs/api-chats.md):
+// UsuarioChat es la única tabla de pertenencia — toda persona con acceso a la sala tiene
+// fila, incluido el miembro del refugio que atiende. `refugioId` es una etiqueta
+// institucional: dice que la contraparte de la conversación es ese refugio, y es lo que
+// define qué nombre e imagen ve el adoptante. Tiene que ser así porque Mensaje.usuarioId
+// es NOT NULL contra Usuario: un refugio no emite mensajes, los emite una persona.
+//
+// Corolario: `refugioId != null` ⇔ chat adoptante↔refugio; `null` ⇔ coordinación entre
+// adoptantes por una mascota perdida (REQUISITOS.md, módulo 5). Son los dos casos que
+// `tipo` querría distinguir, ya derivables sin él.
 
 model Chat {
   id        Int     @id @default(autoincrement()) @map("chat_id")
@@ -598,6 +609,12 @@ model Chat {
   @@map("chat")
 }
 
+// Además del índice de abajo, la tabla tiene un índice PARCIAL que Prisma no sabe expresar
+// y vive en `migrations/20260901120000_chat_indices_listado_conversaciones`:
+//
+// - `usuario_chat_usuario_activo_idx` — (usuario_id) WHERE fecha_baja IS NULL. Es el punto
+//   de entrada de HU-5.1 ("mis salas activas"); el índice de abajo arranca por `chat_id` y
+//   no sirve para buscar por usuario.
 model UsuarioChat {
   id        Int @id @default(autoincrement()) @map("usuario_chat_id")
   chatId    Int @map("chat_id")
@@ -618,6 +635,20 @@ model UsuarioChat {
 }
 
 // Mensaje: solo alta, nunca baja ni modificación (MODELO_DATOS.md, excepción explícita).
+//
+// La tabla no declara índices acá pero tiene dos en
+// `migrations/20260901120000_chat_indices_listado_conversaciones`:
+//
+// - `mensaje_chat_fecha_alta_idx` — (chat_id, fecha_alta DESC). Sostiene el DISTINCT ON que
+//   trae el último mensaje de todos los chats de un usuario en una sola query (HU-5.1) y el
+//   historial paginado de la sala (HU-5.2). No es parcial: no hay `fecha_baja` que filtrar.
+// - `mensaje_chat_usuario_no_leido_idx` — (chat_id, usuario_id) WHERE leido = false, para el
+//   contador de no leídos. Parcial porque las filas no leídas son una minoría que se achica
+//   sola a medida que se abren las salas.
+//
+// `leido` es un booleano ÚNICO por mensaje, no por participante: alcanza para una sala de
+// dos (los no leídos de alguien son los mensajes que no emitió él), pero NO soportaría un
+// chat grupal. Ver "Pendientes" en docs/api-chats.md.
 model Mensaje {
   id        Int     @id @default(autoincrement()) @map("mensaje_id")
   contenido String  @map("mensaje_contenido")

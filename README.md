@@ -164,13 +164,36 @@ modulo/
 npm run dev          # Desarrollo con hot-reload
 npm run build        # Build de producción
 npm start            # Ejecutar build
-npm run seed         # Sembrar datos iniciales
+npm run seed         # Sembrar datos iniciales (catálogos + cuentas de prueba)
 npm run lint         # Analizar con ESLint
 npm run lint:fix     # Fix automático de ESLint
 npm run format       # Formatear con Prettier
 npm run format:check # Verificar formato (CI)
 npm test             # Ejecutar tests
 ```
+
+### Seeds por módulo (opcionales)
+
+`npm run seed` corre solo `prisma/seed.ts`: catálogos y las cuentas de prueba
+(`admin@` / `adoptante@` / `refugio@pethood.test`, contraseña `Pethood123`). Es el único que
+se ejecuta automáticamente con `prisma db seed` y `migrate reset`.
+
+Además hay seeds por módulo, que se corren **a mano y después** del anterior. Están separados
+a propósito: son datos para desarrollar una pantalla puntual y no deberían imponerse a quien
+está trabajando en otra fase. Todos son idempotentes y no corren con `NODE_ENV=production`.
+
+```bash
+npx tsx prisma/seed-chats.ts              # HU-5.1 — listado de conversaciones (GUI-08 / GUI-31)
+npx tsx prisma/seed-dashboard-admin.ts    # spec 009 — dashboard admin
+npx tsx prisma/seed-dashboard-refugio.ts  # spec 010 — dashboard refugio
+npx tsx prisma/seed-admin-usuarios.ts     # spec 002 — gestión de usuarios y refugios
+```
+
+`seed-chats.ts` deja 6 conversaciones para `adoptante@pethood.test` que cubren todos los casos
+del listado: chat con refugio y con otro adoptante, sala sin ningún mensaje, contacto dado de
+baja, mensaje de solo foto, contador por encima de 99 y nombres largos para ver el truncado.
+Los mensajes se fechan relativo al momento de correrlo, así se ven los distintos tramos de
+tiempo relativo ("Hace 3 min", "Hace 2 horas", "Ayer", "Hace 4 días").
 
 ## Documentación
 
