@@ -3,6 +3,7 @@ import { authRouter } from '../modules/auth/auth.routes';
 import { adminUsuariosRouter } from '../modules/admin-usuarios/admin-usuarios.routes';
 import { usuariosRouter } from '../modules/usuarios/usuarios.routes';
 import { catalogosRouter } from '../modules/catalogos/catalogos.routes';
+import { chatsRouter } from '../modules/chats/chats.routes';
 import { dashboardAdminRouter } from '../modules/dashboard-admin/dashboard-admin.routes';
 import { dashboardRefugioRouter } from '../modules/dashboard-refugio/dashboard-refugio.routes';
 import { favoritosRouter } from '../modules/favoritos/favoritos.routes';
@@ -28,6 +29,7 @@ apiRouter.use('/usuarios', usuariosRouter);
 apiRouter.use('/mascotas', mascotasRouter);
 apiRouter.use('/publicaciones', publicacionesRouter);
 apiRouter.use('/favoritos', favoritosRouter);
+apiRouter.use('/chats', chatsRouter);
 apiRouter.use('/', catalogosRouter);
 apiRouter.use('/', historiaClinicaRouter); // spec 005
 
