@@ -24,3 +24,5 @@ Cada módulo tiene una spec numerada que se escribe y aprueba ANTES de codificar
 | 007 | Campañas, Padrinazgos y Perdidos | 7 | pendiente |
 | 008 | Panel Admin y Moderación | 8 | pendiente |
 | 009 | Dashboards y Reportes (Admin) | 12 | APROBADA |
+| 010 | Dashboard de Refugio | 12 | APROBADA |
+| 011 | Seguimiento Post-Adopción (HU-9.1, HU-9.2) | 7 | APROBADA |
