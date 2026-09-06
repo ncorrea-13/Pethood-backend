@@ -17,11 +17,15 @@ function parsearOFallar<T extends z.ZodTypeAny>(schema: T, datos: unknown): z.in
   return resultado.data;
 }
 
+/**
+ * `etiqueta` viaja con su preposición ya contraída ("del seguimiento", "de la solicitud"):
+ * armarla acá a partir del sustantivo daría "de el seguimiento" en los masculinos.
+ */
 function idDeParametro(valor: unknown, etiqueta: string): number {
   const id = parsearId(valor);
 
   if (id === null) {
-    throw new AppError('VALIDACION', `El id de ${etiqueta} no es válido`, 400);
+    throw new AppError('VALIDACION', `El id ${etiqueta} no es válido`, 400);
   }
 
   return id;
@@ -43,9 +47,24 @@ export async function listarDeSolicitud(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const solicitudId = idDeParametro(req.params.solicitudId, 'la solicitud');
+    const solicitudId = idDeParametro(req.params.solicitudId, 'de la solicitud');
 
     res.json(await service.obtenerSeguimientosDeSolicitud(solicitudId, req.usuario!.usuarioId));
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** HU-9.3. Una actualización puntual, abierta desde el expediente o desde una notificación. */
+export async function obtenerActualizacion(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const id = idDeParametro(req.params.id, 'del seguimiento');
+
+    res.json(await service.obtenerActualizacion(id, req.usuario!.usuarioId));
   } catch (err) {
     next(err);
   }
@@ -58,7 +77,7 @@ export async function subirActualizacion(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const id = idDeParametro(req.params.id, 'el seguimiento');
+    const id = idDeParametro(req.params.id, 'del seguimiento');
 
     const resultado = await service.subirActualizacion(
       id,

@@ -22,6 +22,10 @@ seguimientoRouter.get(
   controller.listarDeSolicitud,
 );
 
+// HU-9.3: una actualización suelta. Se declara ANTES del POST anidado por prolijidad, pero
+// no compiten: Express distingue por método y por la profundidad de la ruta.
+seguimientoRouter.get('/seguimientos/:id', autenticar, controller.obtenerActualizacion);
+
 // La foto de evidencia se comprime antes de que el controller la persista (regla
 // transversal 4). El front debe forzar cámara nativa y bloquear galería (regla 9).
 seguimientoRouter.post(

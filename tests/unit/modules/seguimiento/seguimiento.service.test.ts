@@ -22,10 +22,20 @@ const FOTO_URL = '/api/v1/archivos/seguimientos/x.jpg';
 
 interface OverridesPedido {
   descripcion?: string | null;
+  fotoUrl?: string | null;
   plazo?: Date | null;
   fechaModificacion?: Date | null;
   fechaAlta?: Date;
   preguntaSeguimientoId?: number;
+}
+
+/** Un pedido ya respondido: descripción, foto y fecha de respuesta van siempre juntas. */
+function pedidoRespondido(id: number, descripcion = 'Come dos veces por día y subió 300 g') {
+  return pedido(id, {
+    descripcion,
+    fotoUrl: FOTO_URL,
+    fechaModificacion: new Date('2026-06-05T10:00:00.000Z'),
+  });
 }
 
 function pedido(id: number, overrides: OverridesPedido = {}) {
@@ -378,6 +388,96 @@ describe('subirActualizacion (HU-9.1)', () => {
     ).rejects.toThrow('base caída');
 
     expect(borrarImagen).toHaveBeenCalledWith(FOTO_URL);
+  });
+});
+
+describe('obtenerActualizacion (HU-9.3)', () => {
+  beforeEach(() => {
+    vi.mocked(repo.buscarSolicitud).mockResolvedValue(
+      solicitud({ seguimientos: [pedidoRespondido(30), pedido(31)] }) as never,
+    );
+  });
+
+  it('el publicador ve pregunta, descripción e imagen de una actualización completada', async () => {
+    vi.mocked(repo.buscarUsuario).mockResolvedValue(PUBLICADOR as never);
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(pedidoRespondido(30) as never);
+
+    const actualizacion = await service.obtenerActualizacion(30, PUBLICADOR.id, AHORA);
+
+    expect(actualizacion.rol).toBe('PUBLICADOR');
+    expect(actualizacion.estado).toBe('COMPLETADO');
+    expect(actualizacion.pregunta).toBe('¿Está comiendo bien?');
+    expect(actualizacion.descripcion).toBe('Come dos veces por día y subió 300 g');
+    expect(actualizacion.fotoUrl).not.toBeNull();
+    // Completada: no lleva mensaje de faltante, se muestra el contenido real.
+    expect(actualizacion.mensaje).toBeNull();
+  });
+
+  it('sin completar y dentro del plazo muestra solo la pregunta con el texto literal', async () => {
+    vi.mocked(repo.buscarUsuario).mockResolvedValue(PUBLICADOR as never);
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(pedido(31) as never);
+
+    const actualizacion = await service.obtenerActualizacion(31, PUBLICADOR.id, AHORA);
+
+    expect(actualizacion.estado).toBe('PENDIENTE');
+    expect(actualizacion.mensaje).toBe('Aún no se sube actualización de este seguimiento');
+    expect(actualizacion.descripcion).toBeNull();
+    expect(actualizacion.fotoUrl).toBeNull();
+  });
+
+  it('sin completar y pasado el plazo muestra el otro texto literal', async () => {
+    vi.mocked(repo.buscarUsuario).mockResolvedValue(PUBLICADOR as never);
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(
+      pedido(31, { plazo: new Date('2026-06-05T12:00:00.000Z') }) as never,
+    );
+
+    const actualizacion = await service.obtenerActualizacion(31, PUBLICADOR.id, AHORA);
+
+    expect(actualizacion.estado).toBe('VENCIDO');
+    expect(actualizacion.mensaje).toBe('No se subió actualización de seguimiento');
+    expect(actualizacion.descripcion).toBeNull();
+  });
+
+  it('el adoptante puede releer lo que él mismo cargó', async () => {
+    vi.mocked(repo.buscarUsuario).mockResolvedValue(ADOPTANTE as never);
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(pedidoRespondido(30) as never);
+
+    const actualizacion = await service.obtenerActualizacion(30, ADOPTANTE.id, AHORA);
+
+    expect(actualizacion.rol).toBe('ADOPTANTE');
+    expect(actualizacion.estado).toBe('COMPLETADO');
+    expect(actualizacion.descripcion).toBe('Come dos veces por día y subió 300 g');
+  });
+
+  it('trae el contexto de la mascota, porque se puede entrar desde una notificación', async () => {
+    vi.mocked(repo.buscarUsuario).mockResolvedValue(STAFF_REFUGIO as never);
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(pedido(31) as never);
+
+    const actualizacion = await service.obtenerActualizacion(31, STAFF_REFUGIO.id, AHORA);
+
+    expect(actualizacion.mascota.nombre).toBe('Rex');
+    expect(actualizacion.adoptante).toEqual({ id: ADOPTANTE.id, nombre: 'Ana', apellido: 'Gomez' });
+    expect(actualizacion.solicitudId).toBe(1);
+    expect(actualizacion.tipo).toBe('Adopcion');
+  });
+
+  it('404 si el seguimiento no existe', async () => {
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(null as never);
+
+    await expect(service.obtenerActualizacion(999, PUBLICADOR.id, AHORA)).rejects.toMatchObject({
+      codigo: 'NO_ENCONTRADO',
+      httpStatus: 404,
+    });
+  });
+
+  it('403 si el usuario no tiene nada que ver con la solicitud', async () => {
+    vi.mocked(repo.buscarUsuario).mockResolvedValue(AJENO as never);
+    vi.mocked(repo.buscarSeguimiento).mockResolvedValue(pedido(30) as never);
+
+    await expect(service.obtenerActualizacion(30, AJENO.id, AHORA)).rejects.toMatchObject({
+      codigo: 'NO_AUTORIZADO',
+      httpStatus: 403,
+    });
   });
 });
 

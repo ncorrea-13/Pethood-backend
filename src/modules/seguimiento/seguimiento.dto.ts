@@ -92,3 +92,23 @@ export interface ActualizacionCargadaDto {
   mensaje: string;
   seguimiento: SeguimientoItemDto;
 }
+
+/**
+ * HU-9.3: una actualización puntual, con el contexto necesario para abrirla suelta.
+ *
+ * Lleva mascota, adoptante y solicitud porque se puede entrar desde una notificación, sin
+ * haber pasado por el expediente de la mascota: la pantalla no tendría de dónde sacar de qué
+ * animal se trata.
+ */
+export interface ActualizacionSeguimientoDto extends SeguimientoItemDto {
+  solicitudId: number;
+  tipo: string;
+  rol: RolSeguimiento;
+  mascota: MascotaSeguimientoDto;
+  adoptante: AdoptanteSeguimientoDto;
+  /**
+   * Texto a mostrar cuando NO hay actualización cargada, con las palabras literales de
+   * HU-9.3. Es null en una completada: ahí se muestran descripción y foto.
+   */
+  mensaje: string | null;
+}

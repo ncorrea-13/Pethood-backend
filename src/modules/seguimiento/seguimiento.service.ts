@@ -4,6 +4,7 @@ import { registrarAuditoria } from '../../shared/logAuditoria';
 import { borrarImagen, guardarImagen } from '../../shared/storage';
 import type {
   ActualizacionCargadaDto,
+  ActualizacionSeguimientoDto,
   DetalleSeguimientoDto,
   EstadoSeguimiento,
   RolSeguimiento,
@@ -28,6 +29,14 @@ const TIPO_NOTIFICACION_VENCIDO = 'SEGUIMIENTO_VENCIDO';
 /** Texto literal de HU-9.1, tanto el de éxito como el del aviso al publicador. */
 const MENSAJE_EXITO = 'seguimiento cargado con exito';
 const MENSAJE_NO_ENVIADO = 'Actualización de seguimiento no enviado';
+
+/**
+ * Textos literales de HU-9.3, para cuando se abre una actualización que todavía no se cargó.
+ * La distinción es el plazo: mientras esté abierto el adoptante todavía puede responder
+ * ("aún no"), cumplido el plazo ya no ("no se subió").
+ */
+const MENSAJE_SIN_CARGAR_A_TIEMPO = 'Aún no se sube actualización de este seguimiento';
+const MENSAJE_SIN_CARGAR_VENCIDO = 'No se subió actualización de seguimiento';
 
 export interface Contexto {
   usuarioId: number;
@@ -366,6 +375,56 @@ export async function obtenerSeguimientosDeSolicitud(
   const seguimientos = await sincronizarSolicitud(solicitud, ahora);
 
   return aDetalle({ solicitud, rol, seguimientos, ahora });
+}
+
+/**
+ * HU-9.3: una actualización puntual, para la pantalla "Actualización Seguimiento".
+ *
+ * Sirve a los dos lados: el publicador revisa lo que mandó el adoptante y el adoptante
+ * relee lo que él mismo cargó. Cuando no hay nada cargado no se inventa contenido — se
+ * devuelve la pregunta y el mensaje que corresponde según si el plazo sigue abierto o no.
+ */
+export async function obtenerActualizacion(
+  seguimientoId: number,
+  usuarioId: number,
+  ahora: Date = new Date(),
+): Promise<ActualizacionSeguimientoDto> {
+  const seguimiento = await repo.buscarSeguimiento(seguimientoId);
+  if (!seguimiento) throw new AppError('NO_ENCONTRADO', 'El seguimiento no existe', 404);
+
+  const { solicitud, rol } = await exigirSolicitudAccesible(seguimiento.solicitudId, usuarioId);
+
+  // Sincronizar antes de leer: un pedido cuyo plazo venció recién tiene que mostrar el
+  // mensaje de vencido, no el de "aún no", y este es un punto de entrada válido para eso.
+  const seguimientos = await sincronizarSolicitud(solicitud, ahora);
+
+  // El número de pedido solo tiene sentido dentro de la secuencia de su solicitud.
+  const indice = seguimientos.findIndex((item) => item.id === seguimientoId);
+  const item = aItem(seguimiento, indice === -1 ? 0 : indice, ahora);
+
+  const mensajePorEstado: Record<EstadoSeguimiento, string | null> = {
+    COMPLETADO: null,
+    PENDIENTE: MENSAJE_SIN_CARGAR_A_TIEMPO,
+    VENCIDO: MENSAJE_SIN_CARGAR_VENCIDO,
+  };
+
+  return {
+    ...item,
+    solicitudId: solicitud.id,
+    tipo: solicitud.tipoSolicitud.nombre,
+    rol,
+    mascota: {
+      id: solicitud.publicacion.mascota.id,
+      nombre: solicitud.publicacion.mascota.nombre,
+      imagenUrl: solicitud.publicacion.mascota.imagenUrl,
+    },
+    adoptante: {
+      id: solicitud.usuario.id,
+      nombre: solicitud.usuario.nombre,
+      apellido: solicitud.usuario.apellido,
+    },
+    mensaje: mensajePorEstado[item.estado],
+  };
 }
 
 /**
