@@ -10,6 +10,7 @@ import { favoritosRouter } from '../modules/favoritos/favoritos.routes';
 import { historiaClinicaRouter } from '../modules/historia-clinica/historia-clinica.routes';
 import { mascotasRouter } from '../modules/mascotas/mascotas.routes';
 import { publicacionesRouter } from '../modules/publicaciones/publicaciones.routes';
+import { solicitudesRouter } from '../modules/solicitudes/solicitudes.routes';
 import { seguimientoRouter } from '../modules/seguimiento/seguimiento.routes';
 
 export const apiRouter = Router();
@@ -30,6 +31,7 @@ apiRouter.use('/usuarios', usuariosRouter);
 apiRouter.use('/mascotas', mascotasRouter);
 apiRouter.use('/publicaciones', publicacionesRouter);
 apiRouter.use('/favoritos', favoritosRouter);
+apiRouter.use('/solicitudes', solicitudesRouter); // spec 003 — HU-7.4/7.5
 apiRouter.use('/chats', chatsRouter);
 apiRouter.use('/', catalogosRouter);
 apiRouter.use('/', historiaClinicaRouter); // spec 005
