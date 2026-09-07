@@ -62,4 +62,12 @@ export const LIMITES = {
   solicitud: {
     comentario: { max: 500 },
   },
+  /**
+   * Seguimiento post-adopción (spec 011). La HU-9.1 pide "descripción larga" sin fijar el
+   * número; 1000 es el mismo techo que la descripción de historia clínica, que es el campo
+   * largo más parecido del dominio.
+   */
+  seguimiento: {
+    descripcion: { min: 1, max: 1000 },
+  },
 } as const;

@@ -78,6 +78,38 @@ describe('mensajeObligatorio', () => {
   });
 });
 
+describe('validarTexto — mensajes a medida', () => {
+  // HU-9.1 fija el texto literal que tiene que ver el usuario, distinto del genérico.
+  const descripcionSeguimiento = {
+    min: 1,
+    max: 10,
+    etiqueta: 'La descripción',
+    errorObligatorio: 'Completar descripción',
+    errorLongitud: 'Limite de caracteres superado',
+  };
+
+  it('usa el mensaje a medida cuando el campo viene vacío', () => {
+    expect(validarTexto('  ', descripcionSeguimiento)).toEqual({
+      valido: false,
+      error: 'Completar descripción',
+    });
+  });
+
+  it('usa el mensaje a medida cuando se pasa del máximo', () => {
+    expect(validarTexto('a'.repeat(11), descripcionSeguimiento)).toEqual({
+      valido: false,
+      error: 'Limite de caracteres superado',
+    });
+  });
+
+  it('la regla de validez no cambia: un valor correcto sigue pasando recortado', () => {
+    expect(validarTexto('  hola  ', descripcionSeguimiento)).toEqual({
+      valido: true,
+      valor: 'hola',
+    });
+  });
+});
+
 describe('validarTexto — campos sin mínimo', () => {
   const ubicacion = { max: 50, etiqueta: 'La ubicación' };
 

@@ -7,9 +7,9 @@
 import { z } from 'zod';
 import { validarFechaFutura, validarFechaPasada } from './dates';
 import { parsearDecimal } from './numbers';
-import { validarTexto } from './text';
+import { validarTexto, type OpcionesTexto } from './text';
 
-export function textoSchema(opciones: { min?: number; max: number; etiqueta: string }) {
+export function textoSchema(opciones: Omit<OpcionesTexto, 'obligatorio'>) {
   return z.unknown().transform((valor, ctx) => {
     const resultado = validarTexto(valor, opciones);
 

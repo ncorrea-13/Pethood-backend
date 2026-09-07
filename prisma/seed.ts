@@ -129,6 +129,66 @@ async function seedTiposSolicitud(usuarioAlta: number) {
   });
 }
 
+/**
+ * Catálogo de preguntas del seguimiento post-adopción (spec 011, HU-9.2: "precargadas y
+ * agregadas de manera aleatoria"). Son preguntas clásicas de cuidado animal: el sistema
+ * sortea una por cada pedido de seguimiento.
+ *
+ * `esAdopcion` separa los dos flujos: una adopción es definitiva y pregunta por la
+ * convivencia a largo plazo; un tránsito es temporal y pregunta por la adaptación y el
+ * tratamiento en curso. `posicion` es solo el orden del catálogo, no el de aparición.
+ */
+async function seedPreguntasSeguimiento(usuarioAlta: number) {
+  const adopcion = [
+    '¿Está comiendo bien? ¿Cambió algo en su alimentación?',
+    '¿Cuánto está pesando?',
+    '¿Cuántos días a la semana sale a pasear?',
+    '¿Se está portando bien en casa?',
+    '¿Se está acostumbrando al entorno y a la familia?',
+    '¿Dónde y cómo está durmiendo?',
+    '¿Cómo se lleva con otras mascotas?',
+    '¿Cómo reacciona con las visitas y con los chicos?',
+    '¿Tuvo alguna consulta veterinaria en este tiempo?',
+    '¿Está al día con las vacunas y la desparasitación?',
+    '¿Está activo y con ganas de jugar?',
+    '¿Notaste algún cambio de conducta que te preocupe?',
+  ];
+
+  const transito = [
+    '¿Está comiendo bien durante el tránsito?',
+    '¿Cuánto está pesando?',
+    '¿Cómo se está adaptando al hogar de tránsito?',
+    '¿Cuántos días a la semana sale a pasear?',
+    '¿Cómo se lleva con las otras mascotas de la casa?',
+    '¿Está durmiendo tranquilo durante la noche?',
+    '¿Tuvo alguna urgencia o consulta veterinaria?',
+    '¿Sigue con la medicación o el tratamiento indicado?',
+    '¿Se muestra sociable con las personas que lo visitan?',
+    '¿Notaste algún cambio de conducta desde la última actualización?',
+  ];
+
+  // `texto` no tiene índice único, así que el upsert se hace a mano igual que en asignarRol.
+  const sembrar = async (textos: string[], esAdopcion: boolean) => {
+    for (const [indice, texto] of textos.entries()) {
+      const existente = await prisma.preguntaSeguimiento.findFirst({
+        where: { texto, esAdopcion },
+      });
+      if (existente) continue;
+
+      await prisma.preguntaSeguimiento.create({
+        data: { texto, posicion: indice + 1, esAdopcion, usuarioAlta },
+      });
+    }
+  };
+
+  await sembrar(adopcion, true);
+  await sembrar(transito, false);
+
+  console.log(
+    `❓ Preguntas de seguimiento: ${adopcion.length} de adopción + ${transito.length} de tránsito`,
+  );
+}
+
 async function seedEspeciesYRazas(usuarioAlta: number) {
   const perro = await prisma.especie.upsert({
     where: { nombre: 'Perro' },
@@ -630,6 +690,7 @@ async function main() {
   await seedEstadosAnimalPerdido(sistemaId);
   await seedRoles(sistemaId);
   await seedTiposSolicitud(sistemaId);
+  await seedPreguntasSeguimiento(sistemaId);
   await seedEspeciesYRazas(sistemaId);
 
   // 4) Cuentas de prueba (solo fuera de producción): necesitan Rol y Estado_Refugio ya sembrados.
