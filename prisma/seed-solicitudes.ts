@@ -136,7 +136,9 @@ async function main() {
 
 /** RolUsuario no tiene índice único, así que el upsert se hace a mano (mismo criterio que seed.ts). */
 async function asignarRol(usuarioId: number, rolId: number, usuarioAlta: number) {
-  const existente = await prisma.rolUsuario.findFirst({ where: { usuarioId, rolId, fechaBaja: null } });
+  const existente = await prisma.rolUsuario.findFirst({
+    where: { usuarioId, rolId, fechaBaja: null },
+  });
   if (existente) return;
 
   await prisma.rolUsuario.create({ data: { usuarioId, rolId, usuarioAlta } });
@@ -156,7 +158,15 @@ async function seedActoresPersonales(usuarioAlta: number, estadoActivoId: number
     const usuario = await prisma.usuario.upsert({
       where: { email },
       update: {},
-      create: { nombre, apellido, email, contrasena, verificado: true, estadoId: estadoActivoId, usuarioAlta },
+      create: {
+        nombre,
+        apellido,
+        email,
+        contrasena,
+        verificado: true,
+        estadoId: estadoActivoId,
+        usuarioAlta,
+      },
     });
     await asignarRol(usuario.id, rolId, usuarioAlta);
     return usuario;

@@ -122,7 +122,10 @@ describe('listarRecibidas', () => {
       mascota: { id: 8, nombre: 'Toby' },
       solicitante: { id: SOLICITANTE, nombre: 'Ana', apellido: 'Pérez' },
     });
-    expect(repo.listarDelActor).toHaveBeenCalledWith({ id: MIEMBRO_REFUGIO, refugioId: REFUGIO_ID });
+    expect(repo.listarDelActor).toHaveBeenCalledWith({
+      id: MIEMBRO_REFUGIO,
+      refugioId: REFUGIO_ID,
+    });
   });
 
   it('filtra por estado, contando solo lo que matchea', async () => {
@@ -236,9 +239,9 @@ describe('obtenerDetalle', () => {
       }) as never,
     );
 
-    await expect(
-      service.obtenerDetalle(SOLICITUD, ADOPTANTE_PUBLICADOR),
-    ).resolves.toMatchObject({ id: SOLICITUD });
+    await expect(service.obtenerDetalle(SOLICITUD, ADOPTANTE_PUBLICADOR)).resolves.toMatchObject({
+      id: SOLICITUD,
+    });
   });
 
   it('un adoptante NO puede ver la solicitud de la mascota de OTRO adoptante (404)', async () => {
@@ -327,7 +330,11 @@ describe('resolverSolicitud', () => {
     );
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Rechazada', comentario: null }, MIEMBRO_REFUGIO),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Rechazada', comentario: null },
+        MIEMBRO_REFUGIO,
+      ),
     ).rejects.toMatchObject({ codigo: 'SOLICITUD_YA_RESUELTA', httpStatus: 409 });
     expect(repo.resolverSiPendiente).not.toHaveBeenCalled();
   });
@@ -338,7 +345,11 @@ describe('resolverSolicitud', () => {
     vi.mocked(repo.resolverSiPendiente).mockResolvedValue(null as never);
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Aprobada', comentario: null }, MIEMBRO_REFUGIO),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Aprobada', comentario: null },
+        MIEMBRO_REFUGIO,
+      ),
     ).rejects.toMatchObject({ codigo: 'SOLICITUD_YA_RESUELTA', httpStatus: 409 });
   });
 
@@ -351,7 +362,11 @@ describe('resolverSolicitud', () => {
     );
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Aprobada', comentario: null }, MIEMBRO_REFUGIO),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Aprobada', comentario: null },
+        MIEMBRO_REFUGIO,
+      ),
     ).rejects.toMatchObject({ codigo: 'NO_ENCONTRADO', httpStatus: 404 });
     expect(repo.resolverSiPendiente).not.toHaveBeenCalled();
   });
@@ -369,7 +384,11 @@ describe('resolverSolicitud', () => {
     );
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Aprobada', comentario: null }, OTRO_ADOPTANTE),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Aprobada', comentario: null },
+        OTRO_ADOPTANTE,
+      ),
     ).rejects.toMatchObject({ codigo: 'NO_ENCONTRADO', httpStatus: 404 });
     expect(repo.resolverSiPendiente).not.toHaveBeenCalled();
   });
@@ -378,7 +397,11 @@ describe('resolverSolicitud', () => {
     vi.mocked(repo.buscarEstadoSolicitudPorNombre).mockResolvedValue(null as never);
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Aprobada', comentario: null }, MIEMBRO_REFUGIO),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Aprobada', comentario: null },
+        MIEMBRO_REFUGIO,
+      ),
     ).rejects.toMatchObject({ codigo: 'ERROR_INTERNO', httpStatus: 500 });
   });
 
@@ -402,7 +425,11 @@ describe('resolverSolicitud', () => {
     vi.mocked(repo.resolverSiPendiente).mockResolvedValue(null as never);
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Aprobada', comentario: null }, MIEMBRO_REFUGIO),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Aprobada', comentario: null },
+        MIEMBRO_REFUGIO,
+      ),
     ).rejects.toMatchObject({ codigo: 'SOLICITUD_YA_RESUELTA' });
     expect(logAuditoria.registrarAuditoria).not.toHaveBeenCalled();
   });
@@ -411,7 +438,11 @@ describe('resolverSolicitud', () => {
     vi.mocked(repo.buscarConDetalle).mockResolvedValue(null as never);
 
     await expect(
-      service.resolverSolicitud(SOLICITUD, { estado: 'Aprobada', comentario: null }, MIEMBRO_REFUGIO),
+      service.resolverSolicitud(
+        SOLICITUD,
+        { estado: 'Aprobada', comentario: null },
+        MIEMBRO_REFUGIO,
+      ),
     ).rejects.toBeInstanceOf(AppError);
   });
 });

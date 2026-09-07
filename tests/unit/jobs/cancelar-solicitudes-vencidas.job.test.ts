@@ -55,7 +55,11 @@ describe('vencimiento', () => {
     const cantidad = await cancelarSolicitudesVencidas(AHORA);
 
     expect(cantidad).toBe(1);
-    expect(repo.cancelarSiPendiente).toHaveBeenCalledWith(1, ESTADO_CANCELADA.id, USUARIO_SISTEMA_ID);
+    expect(repo.cancelarSiPendiente).toHaveBeenCalledWith(
+      1,
+      ESTADO_CANCELADA.id,
+      USUARIO_SISTEMA_ID,
+    );
   });
 
   it('NO cancela una Pendiente que todavía no llegó a secuenciaDias', async () => {
