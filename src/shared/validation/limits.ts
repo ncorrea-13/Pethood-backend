@@ -58,6 +58,10 @@ export const LIMITES = {
     descripcion: { min: 1, max: 1000 },
   },
 
+  /** El comentario del refugio al aceptar/rechazar (HU-7.4). `motivacion` se agrega cuando se implemente HU-7.1. */
+  solicitud: {
+    comentario: { max: 500 },
+  },
   /**
    * Seguimiento post-adopción (spec 011). La HU-9.1 pide "descripción larga" sin fijar el
    * número; 1000 es el mismo techo que la descripción de historia clínica, que es el campo
