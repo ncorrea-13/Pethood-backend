@@ -4,7 +4,7 @@ Endpoint de **HU-5.1 (Acceso y visualización del listado de conversaciones acti
 
 > Este documento describe **solo lo que el backend expone**. Los textos de UI y las reglas de la pantalla salen de `REQUISITOS.md`.
 
-Las pantallas que lo consumen son **GUI-08 (Chat Adoptante)** y **GUI-31 (Chat Refugio)**. Abrir una conversación y enviar mensajes es **HU-5.2**, buscar por nombre de contacto es **HU-5.3** y crear la sala es de la HU de creación — ninguna de las tres está implementada. Ver "Pendiente para otros módulos".
+Las pantallas que lo consumen son **GUI-08 (Chat Adoptante)** y **GUI-31 (Chat Refugio)**. Abrir una conversación y enviar mensajes es **HU-5.2**, que está implementada y documentada aparte en [`api-chat-sala.md`](./api-chat-sala.md). Buscar por nombre de contacto es **HU-5.3** y crear la sala es de la HU de creación — ninguna de las dos está implementada. Ver "Pendiente para otros módulos".
 
 **Alcance de esta HU:** solo el `GET` del listado. El endpoint es de **solo lectura**: no marca nada como leído, no crea salas y no escribe una sola fila.
 
@@ -212,7 +212,7 @@ Migración `20260901120000_chat_indices_listado_conversaciones`. **Solo índices
 
 | Índice | Definición | Para qué |
 |---|---|---|
-| `mensaje_chat_fecha_alta_idx` | `(chat_id, mensaje_fecha_alta DESC)` | El `DISTINCT ON` del último mensaje y el orden. **No es parcial**: `mensaje` no tiene `fecha_baja` (excepción de auditoría), no hay bajas que descartar. Lo va a reusar el historial paginado de HU-5.2 |
+| `mensaje_chat_fecha_alta_idx` | `(chat_id, mensaje_fecha_alta DESC)` | El `DISTINCT ON` del último mensaje y el orden. **No es parcial**: `mensaje` no tiene `fecha_baja` (excepción de auditoría), no hay bajas que descartar. Lo reusa el historial paginado de HU-5.2, que por eso no necesitó índices propios |
 | `mensaje_chat_usuario_no_leido_idx` | `(chat_id, usuario_id) WHERE mensaje_leido = false` | El conteo de no leídos. Parcial porque las filas no leídas son una minoría que **se achica sola**: todo mensaje termina leído. El índice queda del tamaño de la cola pendiente y no crece con el volumen histórico |
 | `usuario_chat_usuario_activo_idx` | `(usuario_id) WHERE usuario_chat_fecha_baja IS NULL` | Punto de entrada del listado. El índice que ya existía arranca por `chat_id` y **no sirve** para buscar por usuario |
 
@@ -236,29 +236,21 @@ Guardar `chat_ultimo_mensaje_fecha`/`contenido` en `Chat` convertiría el listad
 
 ## Pendiente para otros módulos
 
-### HU-5.2 — Envío y recepción de mensajes (tiempo real)
+### HU-5.2 — Envío y recepción de mensajes — ✅ implementada
 
-**Estado actual de la infraestructura:** no hay **nada** de websockets en el proyecto. No hay `socket.io`, `ws` ni equivalente en `package.json`, y el directorio `src/websockets/` que reservan `ARQUITECTURA.md` y `AGENTS.md` **no existe en disco**. `ROADMAP.md` lo lista como trabajo de Fase 5. En `server.ts`, `app.listen()` ya guarda el `http.Server` en una const, así que un `io.attach(server)` no requiere refactor.
+Ver [`api-chat-sala.md`](./api-chat-sala.md) para el contrato completo (historial paginado, envío, marcado de leídos, cabecera de la sala y todos los eventos de websocket).
 
-**Lo que esta HU dejó preparado:** la forma de cada ítem del listado es **exactamente la que tendría que llevar el payload de un evento "llegó un mensaje nuevo"** — autocontenida (contacto ya resuelto, sin lookups del cliente), con `chatId` como identificador estable y `noLeidos` como número absoluto y no como delta. Así el cliente reemplaza el ítem entero o lo inserta arriba y reordena por `fechaUltimaActividad` en memoria, **sin refetch del listado**.
+**Qué le dejó preparado este listado, y se usó tal cual:** la forma de cada ítem es autocontenida (contacto ya resuelto, sin lookups del cliente), `chatId` es un identificador estable y `noLeidos` es un número absoluto y no un delta. Eso permitió que el evento de mensaje nuevo actualice el listado **sin refetch**.
 
-Eventos mínimos que va a necesitar:
+**Lo que cambió respecto de lo que este documento anticipaba** — vale la pena registrarlo porque el diseño real difiere en tres puntos:
 
-| Evento | Dirección | Payload |
+| Se anticipaba | Quedó | Por qué |
 |---|---|---|
-| `chat:mensaje-nuevo` | server → cliente | Un `ConversacionDto` completo, idéntico al ítem del listado |
-| `chat:leido` | cliente → server | `{ chatId }` al abrir la sala; el server pone `leido = true` a los mensajes ajenos |
-| `chat:leido-confirmado` | server → cliente | `{ chatId, noLeidos: 0 }` para bajar el badge en los otros dispositivos del usuario |
+| `chat:mensaje-nuevo` con un `ConversacionDto` (ítem del listado) | Con un `MensajeDto` (el mensaje en sí) | El evento tiene que servir a las **dos** pantallas. La sala necesita el mensaje; el listado deriva el preview de ese mensaje, que ya trae `contenido`, `imagenUrl`, `usuarioId` y `fechaAlta`. Al revés no funcionaba: un `ConversacionDto` no alcanza para pintar una burbuja porque no tiene el `id` del mensaje |
+| `chat:leido` como cliente → server | Marcar leídos es un **POST REST**; `chat:leido` quedó como server → sala | Escribir por socket habría duplicado validación y manejo de errores. El socket terminó siendo **solo de lectura** |
+| `chat:leido-confirmado` | `chat:no-leidos` | Mismo payload y mismo propósito; el nombre describe el dato y no el hecho de confirmar algo |
 
-**Sobre el proceso:** conviene que el servidor de websockets **comparta proceso con el HTTP** mientras haya una sola instancia — colgarse del `http.Server` que ya existe es lo más barato y evita duplicar la verificación de JWT. Separarlo recién tiene sentido al escalar horizontalmente, y ahí hace falta un adapter con Redis para propagar eventos entre instancias; no antes.
-
-**Lo que HU-5.2 tiene que resolver además:**
-
-1. **Autorizar por `UsuarioChat`**, no por rol: entrar a una sala exige tener fila activa. Es el mismo filtro que usa este listado.
-2. **Bloquear el envío si `contacto.activo` es `false`.** Este endpoint expone el dato pero no lo gatea — leer sí, escribir no.
-3. **Marcar como leído al abrir**, nunca al listar.
-4. **Paginar el historial de mensajes**, que ahí sí crece sin cota. `mensaje_chat_fecha_alta_idx` ya cubre el `WHERE chat_id = ? ORDER BY fecha_alta DESC LIMIT n`.
-5. **Disparar HU-4.3** (notificación de mensaje nuevo) desde el mismo evento.
+Los cinco puntos que este documento marcaba como pendientes se resolvieron: autorización por `UsuarioChat` (misma función en REST y en socket), bloqueo de envío con `contacto.activo: false` (409 `CONTACTO_INACTIVO`), marcado de leídos sólo al abrir, historial paginado por cursor sobre `mensaje_chat_fecha_alta_idx`, y el punto de enganche para HU-4.3 identificado. **HU-5.2 no necesitó ninguna migración ni tocó `schema.prisma`.**
 
 ### HU-5.3 — Búsqueda de conversaciones por nombre de contacto
 
@@ -280,7 +272,7 @@ No está implementada. Cuando se haga:
 
 La solución más barata sería una columna `usuario_chat_ultima_lectura` (timestamp) en `UsuarioChat`: los no leídos pasarían a ser los mensajes con `fecha_alta > ultima_lectura` y `usuario_id != yo`. Tiene dos ventajas extra: es **una sola escritura por sala abierta** en vez de un `UPDATE` masivo sobre `mensaje`, y encaja mejor con el evento `chat:leido` de websockets.
 
-**Es un cambio de estructura, así que queda fuera de esta HU** — anotado para que se decida antes de implementar chats grupales o HU-5.2, lo que llegue primero.
+**Es un cambio de estructura, así que quedó fuera de esta HU y también de HU-5.2**, que ya llegó y siguió el mismo criterio: su endpoint de marcado escribe **toda la sala de una**, lo cual es correcto para dos participantes y rompe con tres o más. Hay que decidirlo antes de implementar chats grupales.
 
 ### Auditoría de `Mensaje`
 

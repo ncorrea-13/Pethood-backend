@@ -36,6 +36,27 @@ export function textoOpcionalSchema(opciones: { max: number; etiqueta: string })
   });
 }
 
+/**
+ * Igual que `textoOpcionalSchema` pero el vacío queda como cadena vacía y no como null.
+ *
+ * Es para columnas NOT NULL donde "sin texto" es un valor legítimo y no un dato ausente:
+ * `mensaje_contenido` en un mensaje de solo foto (HU-5.2). Va aparte y no como opción del
+ * otro para que el tipo inferido sea `string` y el service no tenga que descartar un null
+ * que nunca puede llegar.
+ */
+export function textoOpcionalNoNuloSchema(opciones: { max: number; etiqueta: string }) {
+  return z.unknown().transform((valor, ctx) => {
+    const resultado = validarTexto(valor, { ...opciones, obligatorio: false });
+
+    if (!resultado.valido) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: resultado.error });
+      return z.NEVER;
+    }
+
+    return resultado.valor;
+  });
+}
+
 export function fechaPasadaSchema(etiqueta: string) {
   return z.unknown().transform((valor, ctx) => {
     const resultado = validarFechaPasada(valor as string | Date, etiqueta);

@@ -1,14 +1,16 @@
 /**
- * Acceso a datos del listado de conversaciones (HU-5.1).
- *
- * Todo el módulo es de SOLO LECTURA: marcar mensajes como leídos es de HU-5.2 y crear salas
- * es de la HU de creación. Acá no se escribe nada, así que no hay helpers de auditoría.
+ * Acceso a datos del chat: listado de conversaciones (HU-5.1) y sala (HU-5.2).
  *
  * El listado resuelve el último mensaje y el conteo de no leídos de TODOS los chats con dos
  * queries fijas, no una por chat: ver `ultimoMensajePorChat` y `contarNoLeidosPorChat`.
+ *
+ * Lo que se escribe es sólo lo de HU-5.2 —el alta de un mensaje y el marcado de leídos— y
+ * nunca hay baja ni modificación de `Mensaje`: MODELO_DATOS.md lo declara excepción de
+ * auditoría (solo alta). Crear salas sigue siendo de otra HU.
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/prisma';
+import { datosAlta } from '../../shared/auditoria';
 
 /**
  * Salas donde el usuario es participante ACTIVO, con el refugio y el otro participante.
@@ -130,4 +132,139 @@ export function contarNoLeidosPorChat(usuarioId: number, chatIds: number[]) {
     },
     _count: { _all: true },
   });
+}
+
+// ─────────────── HU-5.2 · Sala de conversación ───────────────
+
+/**
+ * ¿El usuario es participante ACTIVO de esta sala?
+ *
+ * Es el guard de TODA la HU: historial, envío, marcado de leídos y `chat:unirse` del socket
+ * pasan por acá antes de tocar nada. Los mismos dos filtros de baja que el listado, así que
+ * lo que no se ve en GUI-08 tampoco se puede abrir por id.
+ *
+ * Devuelve el id de la membresía o `null`; el service traduce el null a 403.
+ */
+export function buscarMembresiaActiva(usuarioId: number, chatId: number) {
+  return prisma.usuarioChat.findFirst({
+    where: {
+      usuarioId,
+      chatId,
+      fechaBaja: null,
+      chat: { fechaBaja: null },
+    },
+    select: { id: true },
+  });
+}
+
+/**
+ * La sala con todo lo necesario para resolver el contacto de la cabecera (GUI-14).
+ *
+ * Mismo `include` que `listarChatsActivosDeUsuario` para que `resolverContacto` del service
+ * sirva igual para una fila del listado y para la cabecera de la sala, sin una segunda
+ * versión de la regla. Devuelve `null` si el usuario no participa: es el guard y el dato en
+ * la misma query.
+ */
+export function buscarSalaConContacto(usuarioId: number, chatId: number) {
+  return prisma.usuarioChat.findFirst({
+    where: {
+      usuarioId,
+      chatId,
+      fechaBaja: null,
+      chat: { fechaBaja: null },
+    },
+    include: {
+      chat: {
+        include: {
+          refugio: { select: { id: true, nombre: true, imagenUrl: true, fechaBaja: true } },
+          participantes: {
+            where: { fechaBaja: null, usuarioId: { not: usuarioId } },
+            include: {
+              usuario: {
+                select: {
+                  id: true,
+                  nombre: true,
+                  apellido: true,
+                  imagenUrl: true,
+                  fechaBaja: true,
+                },
+              },
+            },
+            orderBy: { fechaAlta: 'asc' },
+          },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Una página del historial, de la más reciente a la más vieja.
+ *
+ * Se piden `limite + 1` filas para saber si quedan más sin una segunda query de conteo: si
+ * vuelve la de más, hay página siguiente. El service descarta la sobrante.
+ *
+ * El orden es el MISMO desempate que usa el último mensaje del listado
+ * (`fechaAlta DESC, id DESC`), para que la última línea de GUI-08 sea siempre la primera
+ * fila de la sala. Cae sobre `mensaje_chat_fecha_alta_idx`, que ya existe desde HU-5.1.
+ *
+ * `skip: 1` sobre el cursor porque `antesDe` es un mensaje que el cliente YA tiene.
+ */
+export function listarMensajes(chatId: number, limite: number, antesDe?: number) {
+  return prisma.mensaje.findMany({
+    where: { chatId },
+    orderBy: [{ fechaAlta: 'desc' }, { id: 'desc' }],
+    take: limite + 1,
+    ...(antesDe === undefined ? {} : { cursor: { id: antesDe }, skip: 1 }),
+  });
+}
+
+/** ¿El mensaje del cursor pertenece a esta sala? Evita paginar con un id de otro chat. */
+export function buscarMensajeDeChat(chatId: number, mensajeId: number) {
+  return prisma.mensaje.findFirst({
+    where: { id: mensajeId, chatId },
+    select: { id: true },
+  });
+}
+
+/**
+ * Alta de mensaje. Nace `leido: false` (default del schema) y nunca se edita ni se borra.
+ *
+ * `usuarioAlta` es siempre el emisor: un mensaje no se da de alta en nombre de otro.
+ */
+export function crearMensaje(datos: {
+  chatId: number;
+  usuarioId: number;
+  contenido: string;
+  imagenUrl: string | null;
+}) {
+  return prisma.mensaje.create({
+    data: {
+      chatId: datos.chatId,
+      usuarioId: datos.usuarioId,
+      contenido: datos.contenido,
+      imagenUrl: datos.imagenUrl,
+      ...datosAlta(datos.usuarioId),
+    },
+  });
+}
+
+/**
+ * Marca como leídos los mensajes AJENOS de la sala y devuelve cuántos cambiaron.
+ *
+ * `mensaje_leido` es un booleano único por mensaje, así que "leer" es una operación de sala
+ * entera y no de mensaje: un solo UPDATE cubre lo que el modelo puede representar. Los
+ * propios se excluyen siempre — marcar los que uno emitió pondría el doble check en el
+ * dispositivo equivocado.
+ *
+ * Sin campos de modificación porque `Mensaje` no los tiene: MODELO_DATOS.md lo declara
+ * excepción de auditoría (solo alta). Cae sobre `mensaje_chat_usuario_no_leido_idx`.
+ */
+export async function marcarMensajesLeidos(chatId: number, usuarioId: number): Promise<number> {
+  const { count } = await prisma.mensaje.updateMany({
+    where: { chatId, usuarioId: { not: usuarioId }, leido: false },
+    data: { leido: true },
+  });
+
+  return count;
 }

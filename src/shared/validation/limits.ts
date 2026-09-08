@@ -70,4 +70,18 @@ export const LIMITES = {
   seguimiento: {
     descripcion: { min: 1, max: 1000 },
   },
+
+  /**
+   * Mensaje de chat (HU-5.2). REQUISITOS.md no fija un largo máximo, así que 1000 es una
+   * decisión de esta HU: alcanza de sobra para una conversación de coordinación y evita que
+   * un solo mensaje reviente el preview del listado (HU-5.1) o la celda de la sala.
+   *
+   * `min: 0` a propósito: un mensaje puede ser SOLO foto. El service exige que venga texto
+   * o imagen, pero esa es una regla del par de campos y no del largo de uno solo.
+   */
+  mensaje: {
+    contenido: { min: 0, max: 1000 },
+    /** Tamaño de página del historial y su techo. Ver "Paginación" en docs/api-chat-sala.md. */
+    pagina: { porDefecto: 30, maximo: 50 },
+  },
 } as const;
